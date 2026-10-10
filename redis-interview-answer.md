@@ -8974,6 +8974,110 @@ Ye technique useful hai jab Redis Cluster mein multi-key operation ke liye relat
 - **English Pitch:** "Redis Cluster has 16,384 hash slots, numbered from 0 to 16,383. Redis uses CRC16 modulo 16,384 to map keys to slots, and primary nodes own assigned slots. Hash tags can force related keys into the same slot."
 - **Hinglish Quick Memory:** "Redis Cluster mein 16,384 hash slots hote hain. Redis key ka hash calculate karke slot decide karta hai, aur primary nodes slots ko divide karte hain. `{user:101}` jaisa hash tag related keys ko same slot mein rakh sakta hai."
 
+# 🚀 Question 100: What Is Automatic Failover in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+**Automatic failover is the process of promoting a replica to become the new primary when the current Redis primary fails.** Redis Sentinel or Redis Cluster can detect primary-node failure and coordinate the promotion, reducing the need for manual intervention.
+
+Failover can temporarily interrupt operations, and because Redis replication is asynchronous, some recent writes may be lost.
+
+## 🗣️ Answer in Hinglish
+
+Automatic failover ka matlab hai ki agar Redis ka primary node fail ho jaye, toh uski replica ko automatically naya primary banaya ja sakta hai.
+
+Normal architecture mein:
+
+- Primary node writes handle karta hai, according to the application's configuration.
+- Replica primary ke data ko replicate karti hai.
+- Primary down hone par Sentinel ya Redis Cluster failure detect karta hai.
+- Eligible replica ko promote karke naya primary banaya jata hai.
+- Clients ko naye primary se connect karna hota hai; supported clients aur configurations mein discovery/redirects se ye process easier ho sakta hai.
+
+### Real-World Example
+
+MERN application Redis ko caching ke liye use kar rahi hai. Agar primary Redis node crash ho jaye, toh properly configured failover mein replica primary ban sakti hai, jisse service ko manually poora Redis setup rebuild nahi karna padta.
+
+**Important:** Failover zero-downtime ya zero-data-loss ki guarantee nahi hai. Promotion ke waqt short interruption ho sakta hai, aur replication lag ke karan recent writes mein se kuch lost ho sakte hain.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        Before Failure
+       +-------------+
+       |   Primary   |
+       +-------------+
+              |
+          Replication
+              |
+       +-------------+
+       |   Replica   |
+       +-------------+
+
+          Primary fails
+                |
+                v
+        Failure detected
+                |
+                v
+       Replica promoted
+                |
+                v
+        New Primary active
+~~~
+
+## 💻 Practical Example — Redis Sentinel
+
+Redis Sentinel provides monitoring and high availability for a non-sharded Redis deployment.
+
+### Step 1: Check the primary and replica roles
+
+~~~bash
+redis-cli INFO replication
+~~~
+
+Output mein `role:master` ya `role:slave` (legacy field naming jo kuch Redis outputs mein ab bhi dikhti hai) dekh sakte ho.
+
+### Step 2: Ask Sentinel for the current primary address
+
+~~~bash
+redis-cli -p 26379 SENTINEL get-master-addr-by-name mymaster
+~~~
+
+Yahan `mymaster` Sentinel configuration mein defined master name hai. `26379` Sentinel ka common default port hai.
+
+### Step 3: After primary failure
+
+Agar primary fail ho jata hai aur Sentinel failover complete karta hai, toh command naye primary ka address return kar sakti hai. Application ko updated primary address discover karke reconnect karna hoga.
+
+**Note:** Ye commands tabhi kaam karengi jab Sentinel properly configured aur running ho. Sirf replica create karne se automatic failover enable nahi ho jata.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Purpose | Primary failure ke baad service recover karna |
+| Main components | Primary, replica, Sentinel or Redis Cluster |
+| Promotion | Eligible replica ko new primary banaya jata hai |
+| Manual intervention | Proper setup mein generally required nahi |
+| Downtime | Failover ke dauran temporary interruption possible hai |
+| Data loss | Asynchronous replication ke karan recent writes lost ho sakti hain |
+| Client handling | Naye primary se reconnect/discovery support zaroori hai |
+
+### Redis Sentinel vs Redis Cluster Failover
+
+| Feature | Redis Sentinel | Redis Cluster |
+|---|---|---|
+| Main purpose | Monitoring and high availability | Data sharding plus high availability |
+| Data partitioning | Sentinel khud data shard nahi karta | Hash slots ke through data partition hota hai |
+| Automatic failover | Yes, with proper configuration | Yes, with proper configuration |
+| Best suited for | Non-sharded Redis deployment | Distributed, sharded Redis deployment |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Automatic failover promotes a replica to become the new primary when the current Redis primary fails. Redis Sentinel and Redis Cluster can coordinate this process. It improves availability, but it may involve temporary interruption and possible loss of recent writes due to asynchronous replication."
+- **Hinglish Quick Memory:** "Automatic failover mein primary fail hone par replica ko naya primary bana diya jata hai. Sentinel ya Redis Cluster is process ko coordinate kar sakte hain. Isse availability improve hoti hai, lekin thoda downtime aur recent writes ka loss possible hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
