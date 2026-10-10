@@ -10195,6 +10195,161 @@ Yeh sample matching product-list cache keys invalidate karta hai. Large producti
 - **English Pitch:** "I use the cache-aside pattern to cache MongoDB query results in Redis. The application checks Redis first. On a cache hit, it returns the cached result; on a miss, it queries MongoDB, stores the result with a TTL, and returns it. When the underlying data changes, I invalidate or refresh the related cache entries to reduce stale data."
 - **Hinglish Quick Memory:** "Pehle Redis check karte hain. Data mil gaya toh cache hit aur wahi return. Nahi mila toh MongoDB se query chala kar result Redis mein TTL ke saath store karte hain. Product update ya delete hone par related cache invalidate karna bhi zaroori hai."
 
+# 🚀 Question 109: How Do You Invalidate Cache After a MongoDB Update?
+
+## 📝 Answer (English — Interview Definition)
+
+**Cache invalidation after a MongoDB update means removing or refreshing cached data so subsequent requests do not keep using stale values.** In a typical Redis cache-aside architecture, the application first updates MongoDB and then deletes the corresponding Redis cache key. The next request reads the updated document from MongoDB and repopulates the cache.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo MERN application mein product ka data MongoDB aur Redis dono mein stored hai. Initially product ki price ₹500 hai aur Redis mein bhi ₹500 cached hai. Ab user price ₹600 update karta hai.
+
+Agar hum MongoDB update kar dein lekin Redis cache delete na karein, toh API purani price ₹500 return kar sakti hai.
+
+**Correct flow:**
+
+1. MongoDB mein product update karo.
+2. Us product ki Redis cache key delete karo.
+3. Next request par cache miss hoga.
+4. MongoDB se updated data fetch karo.
+5. Updated data Redis mein dobara cache kar do.
+
+Is process ko **cache invalidation** kehte hain.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        Client updates product
+                 |
+                 v
+           Update MongoDB
+                 |
+                 v
+       DEL product:123 in Redis
+                 |
+                 v
+       Next request comes in
+                 |
+                 v
+            Redis cache?
+             /       \
+          Hit         Miss
+           |            |
+           v            v
+      Return cache   Fetch MongoDB
+                         |
+                         v
+                   Update Redis cache
+                         |
+                         v
+                    Return data
+~~~
+
+## 💻 Practical Example — Node.js + Express + MongoDB + Redis
+
+Assume Redis client is already connected and `Product` is a Mongoose model.
+
+### A. Update product and invalidate its cache
+
+~~~javascript
+app.put("/products/:id", async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!product) {
+      return res.status(404).json({
+        message: "Product not found",
+      });
+    }
+
+    // Remove the old cached product
+    await redis.del(`product:${product._id}`);
+
+    return res.status(200).json({
+      message: "Product updated successfully",
+      product,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to update product",
+    });
+  }
+});
+~~~
+
+Here, MongoDB is updated first, and then Redis deletes the old cache entry.
+
+**Production note:** MongoDB update successful hone ke baad Redis deletion fail ho sakti hai. Aise case mein database update already ho chuka hoga. Logging, retry mechanism ya reliable invalidation events use karna useful hai; sirf API ko dobara retry karna har case mein safe nahi hota.
+
+### B. Fetch product using cache-aside
+
+~~~javascript
+app.get("/products/:id", async (req, res) => {
+  try {
+    const cacheKey = `product:${req.params.id}`;
+
+    // 1. Check Redis first
+    const cachedProduct = await redis.get(cacheKey);
+
+    if (cachedProduct) {
+      return res.json(JSON.parse(cachedProduct));
+    }
+
+    // 2. Cache miss: fetch from MongoDB
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        message: "Product not found",
+      });
+    }
+
+    // 3. Store in Redis for future requests
+    await redis.set(cacheKey, JSON.stringify(product), {
+      EX: 300,
+    });
+
+    return res.json(product);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to fetch product",
+    });
+  }
+});
+~~~
+
+Here, `EX: 300` cache ko 300 seconds, yaani 5 minutes ke liye set karta hai.
+
+**Important:** Yeh straightforward interview example hai. Production mein Redis unavailable hone, JSON serialization, cache-update races aur MongoDB read errors ko separately handle karna chahiye.
+
+## 📊 Important Cache Invalidation Strategies
+
+| Strategy | How it works | When useful |
+|---|---|---|
+| Delete cache key | MongoDB update ke baad Redis key delete karo | Most common cache-aside approach |
+| Update cache value | Database update ke baad Redis mein updated value set karo | Jab updated document available ho |
+| TTL expiration | Cache fixed time ke baad expire ho | Extra safety against stale data |
+| Event-driven invalidation | Reliable event ke through relevant cache keys invalidate karo | Multiple services ya distributed applications |
+
+### Common Interview Mistake
+
+**MongoDB update ke baad cache key delete karna usually safer default hai than blindly writing the updated document into Redis.** Lekin concurrent requests mein race condition ho sakti hai: koi request old MongoDB value read karke deletion ke baad dobara Redis cache populate kar sakti hai.
+
+High-concurrency applications mein versioning, coordinated invalidation, reliable events aur TTL jaise measures ki zaroorat ho sakti hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "In a Redis cache-aside pattern, I update MongoDB first and then invalidate the corresponding Redis key using `DEL`. The next read becomes a cache miss, fetches the updated document from MongoDB, and repopulates Redis. In production, I also consider invalidation failures, TTLs, and race conditions to reduce the risk of stale data."
+- **Hinglish Quick Memory:** "Pehle MongoDB update karo, phir Redis ki related cache key `DEL` se delete karo. Next request par cache miss hoga, MongoDB se latest data aayega aur Redis mein dobara store ho jayega. Production mein Redis deletion fail hone aur concurrent requests ki race condition bhi handle karni chahiye."
+
 ---
 
 *More answers will be added in question order, using this format.*
