@@ -7669,6 +7669,122 @@ Agar koi doosra client `WATCH` ki hui key ko modify kar deta hai, toh `EXEC` tra
 - **English Pitch:** "Redis transactions do not support automatic rollback of commands that have already executed successfully. Runtime command errors do not undo earlier successful commands. `DISCARD` cancels queued commands before execution, while `WATCH` can cause `EXEC` to abort if a watched key changes."
 - **Hinglish Quick Memory:** "Redis transactions mein successful commands ka automatic rollback nahi hota. `DISCARD` commands ko execute hone se pehle cancel karta hai. `WATCH` ki hui key change ho jaaye toh `EXEC` abort ho sakta hai, lekin runtime error par pehle ke successful changes undo nahi hote."
 
+# 🚀 Question 87: What Is Optimistic Locking in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+**Optimistic locking in Redis is a concurrency-control technique that uses `WATCH` with `MULTI` and `EXEC` to detect conflicting changes to keys.** Redis monitors the watched keys; if any watched key changes before `EXEC`, the transaction is aborted. The application can then read the latest data and retry the operation.
+
+It is called *optimistic* because the application proceeds assuming a conflict is unlikely, rather than locking the key to prevent other clients from updating it.
+
+## 🗣️ Answer in Hinglish
+
+Optimistic locking ka matlab hai pehle assume karna ki conflict nahi hoga, aur transaction execute karte waqt check karna ki data kisi doosre client ne change toh nahi kiya.
+
+Redis mein hum iske liye `WATCH`, `MULTI` aur `EXEC` use karte hain.
+
+Example: Maan lo product ka stock `10` hai aur do users ek saath order place kar rahe hain.
+
+1. Client A stock `10` read karta hai aur key ko `WATCH` karta hai.
+2. Client B stock ko `9` kar deta hai.
+3. Client A `EXEC` karta hai.
+4. Redis detect karta hai ki watched key change ho gayi, isliye transaction abort ho sakta hai.
+5. Client A latest stock read karke operation dobara try kar sakta hai.
+
+**Important:** `WATCH` key ko lock karke doosre clients ko update karne se nahi rokta. Yeh changes detect karta hai, aur conflict milne par transaction abort karwa sakta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        Client A
+           |
+           | WATCH product:101:stock
+           | Read stock = 10
+           v
+       MULTI + queue update
+           |
+           v
+          EXEC
+           |
+           v
+  Did the watched key change?
+        /          \
+      No            Yes
+      |              |
+      v              v
+Execute queued    Abort transaction
+commands          and retry if needed
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1 — Client A watches and reads the stock
+
+Terminal 1:
+
+~~~bash
+WATCH product:101:stock
+GET product:101:stock
+~~~
+
+Suppose output is:
+
+~~~text
+"10"
+~~~
+
+### Step 2 — Client B changes the stock
+
+Terminal 2:
+
+~~~bash
+SET product:101:stock 9
+~~~
+
+### Step 3 — Client A attempts its transaction
+
+Terminal 1:
+
+~~~bash
+MULTI
+DECRBY product:101:stock 1
+EXEC
+~~~
+
+Because the watched key changed after `WATCH`, `EXEC` aborts the transaction. The queued `DECRBY` is not executed.
+
+### Step 4 — Retry with fresh data
+
+Client A should read the latest stock and re-check the business rule before attempting another transaction.
+
+~~~bash
+GET product:101:stock
+~~~
+
+Output:
+
+~~~text
+"9"
+~~~
+
+The application should retry only after validating the latest stock. This helps prevent updates based on stale data.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Purpose | Concurrent modifications detect karna |
+| Redis commands | `WATCH`, `MULTI`, `EXEC` |
+| Is key locked for other clients? | Nahi |
+| Watched key changes before `EXEC` | Transaction abort ho sakta hai |
+| Strategy | Optimistic concurrency control |
+| After abort | Latest data read karke business rule validate aur retry karo |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Optimistic locking in Redis uses `WATCH` with `MULTI` and `EXEC` to detect concurrent changes. If a watched key changes before `EXEC`, Redis aborts the transaction, allowing the application to read the latest value and retry."
+- **Hinglish Quick Memory:** "`WATCH` key ko monitor karta hai. Agar `WATCH` aur `EXEC` ke beech key change ho jaaye, toh transaction abort ho sakta hai. Application fresh value read karke operation dobara try karti hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
