@@ -10011,6 +10011,190 @@ Yeh command sirf us exact key ko delete karti hai. Agar same data ke multiple ca
 - **English Pitch:** "I implement API caching in Express using the cache-aside pattern. The API checks Redis first and returns the cached response on a hit. On a miss, it fetches data from MongoDB, stores the result in Redis with a TTL, and returns it. I also handle Redis failures and invalidate relevant cache keys after data updates."
 - **Hinglish Quick Memory:** "API request par pehle Redis check karte hain. Cache hit par direct response, aur cache miss par MongoDB se data fetch karke TTL ke saath Redis mein store karte hain. Data update hone par relevant cache keys invalidate karte hain, taaki stale response na mile."
 
+# 🚀 Question 108: How Do You Cache MongoDB Query Results Using Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+We can cache MongoDB query results in Redis using the **cache-aside pattern**. When a request arrives, the application first checks Redis for the result. If the result exists (a cache hit), it returns the cached data. If it does not exist (a cache miss), the application queries MongoDB, stores the result in Redis with a suitable TTL, and returns it.
+
+This reduces repeated database queries and can improve response time. When the underlying MongoDB data changes, the application must also manage cache invalidation or expiration to prevent stale results.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo hamari MERN application mein `Product.find()` query har request par MongoDB se products fetch karti hai.
+
+Agar same query baar-baar chale, toh har baar MongoDB ko hit karne ke bajaye hum result Redis mein temporarily store kar sakte hain.
+
+1. **Cache check:** Pehle Redis mein result search karenge.
+2. **Cache hit:** Data Redis mein mil gaya toh wahi return kar denge.
+3. **Cache miss:** Data nahi mila toh MongoDB se query chalayenge.
+4. **Cache store:** MongoDB ke result ko Redis mein TTL ke saath save karenge.
+5. **Invalidation:** Product update ya delete hone par related cached result ko expire ya invalidate karenge.
+
+**Real-world example:** Product listing page par same category ke products frequently fetch hote hain. Redis caching se har request par MongoDB query chalane ki zaroorat kam ho sakti hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+           Client Request
+                 |
+                 v
+          Node.js / Express
+                 |
+                 v
+          Check Redis Cache
+            /          \
+       Cache Hit     Cache Miss
+           |              |
+           v              v
+     Return Cached    Query MongoDB
+         Data              |
+                           v
+                      Store in Redis
+                       with TTL
+                           |
+                           v
+                     Return Results
+~~~
+
+## 💻 Practical Code Example — Node.js + Express + MongoDB + Redis
+
+Is example mein hum product list ko Redis mein 60 seconds ke liye cache karenge. Yahan `redis` Node.js client aur `Product` Mongoose model already configured hain.
+
+~~~javascript
+const express = require("express");
+const { createClient } = require("redis");
+const Product = require("./models/Product");
+
+const app = express();
+
+const redis = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redis.on("error", (err) => {
+  console.error("Redis error:", err);
+});
+
+async function startServer() {
+  await redis.connect();
+
+  app.get("/products", async (req, res) => {
+    try {
+      const category = req.query.category || "all";
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(
+        50,
+        Math.max(1, parseInt(req.query.limit, 10) || 10)
+      );
+
+      // Cache key must represent the query parameters.
+      const cacheKey =
+        `products:list:${encodeURIComponent(category)}:page:${page}:limit:${limit}`;
+
+      // 1. Check Redis first
+      const cachedData = await redis.get(cacheKey);
+
+      if (cachedData !== null) {
+        return res.json({
+          source: "redis",
+          data: JSON.parse(cachedData),
+        });
+      }
+
+      // 2. Cache miss: query MongoDB
+      const filter =
+        category === "all" ? {} : { category };
+
+      const products = await Product.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean();
+
+      // 3. Store result for 60 seconds
+      await redis.set(
+        cacheKey,
+        JSON.stringify(products),
+        { EX: 60 }
+      );
+
+      // 4. Return result to the client
+      return res.json({
+        source: "mongodb",
+        data: products,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Failed to fetch products",
+      });
+    }
+  });
+
+  app.listen(3000, () => {
+    console.log("Server running on port 3000");
+  });
+}
+
+startServer().catch(console.error);
+~~~
+
+### Code kaise work karta hai?
+
+- **First request:** Redis mein cache key nahi milegi, isliye MongoDB query chalegi. Result Redis mein 60 seconds ke liye save hoga.
+- **Same request within 60 seconds:** Result Redis se aayega, aur response mein `source: "redis"` hoga. MongoDB query skip ho jayegi.
+- **TTL expire hone ke baad:** Cache miss hoga, toh application MongoDB se fresh result fetch karke cache dobara populate karegi.
+
+**Important production considerations:** Category, pagination aur sorting jaise query parameters cache key mein include hone chahiye; warna ek query ka result galat request ko mil sakta hai. Redis temporarily unavailable ho toh application ki policy ke hisaab se MongoDB fallback consider karna chahiye.
+
+### Cache invalidation kab karenge?
+
+Agar product update ya delete ho gaya, toh related cached results purane ho sakte hain.
+
+~~~javascript
+await Product.updateOne(
+  { _id: productId },
+  { $set: { price: 999 } }
+);
+
+// Example: invalidate cached product-list results
+for await (const key of redis.scanIterator({
+  MATCH: "products:list:*",
+  COUNT: 100,
+})) {
+  await redis.del(key);
+}
+~~~
+
+Yeh sample matching product-list cache keys invalidate karta hai. Large production caches mein broad invalidation expensive ho sakti hai; targeted invalidation, cache versioning, ya carefully designed key strategy better ho sakti hai. TTL stale data ka time limit karta hai, lekin update hote hi immediate freshness guarantee nahi karta.
+
+## 📊 Important Concepts
+
+| Concept | Explanation |
+|---|---|
+| Cache hit | Result Redis mein mil gaya; MongoDB query avoid ho sakti hai. |
+| Cache miss | Result Redis mein nahi mila; MongoDB query chalegi. |
+| TTL | Cache entry kitni der expire hone se pehle available rahegi. |
+| Cache key | Query aur uske relevant parameters ko uniquely identify karti hai. |
+| Cache invalidation | MongoDB data update/delete hone par stale cache ko remove ya refresh karna. |
+| Cache-aside | Application pehle cache check karti hai; miss par database se fetch karke cache fill karti hai. |
+| Serialization | Objects ko JSON string mein convert karke Redis mein store karna; read par JSON parse karna. |
+
+### Without Redis vs With Redis
+
+| Without Redis | With Redis |
+|---|---|
+| Har request MongoDB query chala sakti hai. | Cache hit par MongoDB query avoid ho sakti hai. |
+| Repeated queries database load badha sakti hain. | Frequently requested results se database load kam ho sakta hai. |
+| MongoDB ka result directly read hota hai, subject to query semantics. | Result cache ki age aur invalidation policy par depend karta hai. |
+| Extra cache infrastructure nahi chahiye. | Redis memory, TTL aur invalidation manage karna padta hai. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I use the cache-aside pattern to cache MongoDB query results in Redis. The application checks Redis first. On a cache hit, it returns the cached result; on a miss, it queries MongoDB, stores the result with a TTL, and returns it. When the underlying data changes, I invalidate or refresh the related cache entries to reduce stale data."
+- **Hinglish Quick Memory:** "Pehle Redis check karte hain. Data mil gaya toh cache hit aur wahi return. Nahi mila toh MongoDB se query chala kar result Redis mein TTL ke saath store karte hain. Product update ya delete hone par related cache invalidate karna bhi zaroori hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
