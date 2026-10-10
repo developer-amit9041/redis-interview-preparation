@@ -9183,6 +9183,118 @@ Yeh `mymaster` naam ke monitored primary ki information return karta hai. Sentin
 - **English Pitch:** "Redis achieves high availability through replication and failover. Sentinel monitors primary and replica instances and can promote a replica if the primary fails. Redis Cluster combines sharding with replicas for distributed scaling and failover. Applications also need reconnection and retry handling. Since replication is generally asynchronous, failover can result in some recent writes being lost."
 - **Hinglish Quick Memory:** "Redis HA ke liye replication, Sentinel ya Redis Cluster use karta hai. Primary fail hone par replica promote ho sakta hai. Application ko retry aur reconnect handle karna chahiye. Lekin asynchronous replication ki wajah se recent writes lose hone ka risk rehta hai."
 
+# 🚀 Question 102: Replication vs Sharding?
+
+## 📝 Answer (English — Interview Definition)
+
+**Replication** copies the same dataset from a primary node to one or more replica nodes. It improves redundancy and can support read scaling and failover.
+
+**Sharding** partitions a dataset across multiple nodes so that each node stores only a portion of the overall data. It supports horizontal scaling of storage and workload.
+
+The key difference is: **replication creates copies of data, whereas sharding divides data across nodes.**
+
+## 🗣️ Answer in Hinglish
+
+Simple example se samjho:
+
+**Replication = Same data ki copies**
+
+Maan lo Primary A par users ka data stored hai. Replicas par usi dataset ki copies maintain hoti hain. Primary fail ho jaaye toh replica ko promote kiya ja sakta hai, aur suitable setup mein replicas read traffic serve kar sakte hain.
+
+**Sharding = Data ko parts mein divide karna**
+
+Maan lo application ke paas 10 million users hain. Saara data ek Redis primary par rakhne ke bajaye usko multiple shards mein distribute kiya ja sakta hai.
+
+- Shard A kuch users ka data store karega.
+- Shard B doosre users ka data store karega.
+- Shard C baaki data store karega.
+
+Isse total data aur workload multiple nodes par distribute ho sakte hain.
+
+## 🏗️ Architecture Diagram
+
+### Replication — Same Data Copies
+
+~~~text
+           Primary A
+          /         \
+         v           v
+     Replica A    Replica B
+
+  Same dataset copied to replicas
+~~~
+
+### Sharding — Different Data Partitions
+
+~~~text
+         Full Dataset
+               |
+        +------+------+ 
+        |      |      |
+        v      v      v
+      Shard A Shard B Shard C
+        |      |      |
+       Part 1 Part 2 Part 3
+~~~
+
+## 💻 Practical Example
+
+### A. Replication example
+
+Primary par:
+
+~~~bash
+SET user:101 "Amit"
+~~~
+
+Replication configured hone ke baad replica par bhi `user:101` ki copy available ho sakti hai:
+
+~~~bash
+GET user:101
+~~~
+
+Expected value:
+
+~~~text
+"Amit"
+~~~
+
+Replication asynchronous hone ki wajah se replica par change turant available ho, ye guaranteed nahi hai.
+
+### B. Sharding example
+
+Application ki partitioning strategy ke example ke liye:
+
+~~~javascript
+function getShard(userId, shardCount) {
+  const numericId = Number(userId);
+  return numericId % shardCount;
+}
+
+console.log(getShard(101, 3)); // 2
+console.log(getShard(102, 3)); // 0
+console.log(getShard(103, 3)); // 1
+~~~
+
+Ye sirf sharding concept samjhane ke liye simplified example hai. Production Redis Cluster apna hash-slot mechanism use karta hai; manually modulo calculate karna Redis Cluster routing ka replacement nahi hai.
+
+## 📊 Comparison Table
+
+| Feature | Replication | Sharding |
+|---|---|---|
+| Basic idea | Same data ki copies | Data ko partitions mein divide karna |
+| Main goal | Redundancy, failover, possible read scaling | Horizontal storage and workload scaling |
+| Data on each node | Replica par primary ka dataset copy hota hai | Har shard par data ka ek portion hota hai |
+| Capacity | Har replica dataset ki additional copy rakhta hai | Aggregate capacity multiple shards mein distribute hoti hai |
+| Failover | Replica promote ho sakta hai | Shard ke replica se us shard ka failover ho sakta hai, if configured |
+| Read scaling | Replicas read traffic serve kar sakte hain, depending on setup | Requests relevant shard tak route hote hain |
+| Redis example | Primary-replica replication | Redis Cluster hash slots ke through sharding |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Replication copies data from a primary to replicas, improving redundancy and supporting failover. Sharding partitions data across multiple nodes to scale storage and workload horizontally. Redis Cluster combines sharding with replication, so it can support both horizontal scaling and failover."
+- **Hinglish Quick Memory:** "Replication mein same data ki copies banti hain; sharding mein data alag-alag nodes par divide hota hai. Replication redundancy aur failover mein help karti hai, jabki sharding capacity aur workload scale karne mein. Redis Cluster dono techniques combine kar sakta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
