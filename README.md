@@ -5,7 +5,7 @@ Redis interview questions and answers are separated into two files so the questi
 ## Files
 
 - **[Redis Interview Questions](./redis-interview-question.md)** — the complete 140-question list organized into 9 levels.
-- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q79, through “Does Redis Support Transactions?”
+- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q81, through “What Is EXEC?”
 
 ## Study Format
 
