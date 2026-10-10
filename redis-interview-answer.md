@@ -8046,6 +8046,120 @@ Is output mein node ka `role`, connected replicas ki information aur replication
 - **English Pitch:** "Primary-Replica architecture uses one primary Redis node to handle writes and one or more replicas to maintain copies of the data. Replicas can help distribute read traffic and improve availability. Because replication is generally asynchronous, replica reads may be stale, and automatic failover requires an additional mechanism such as Redis Sentinel or Redis Cluster."
 - **Hinglish Quick Memory:** "Primary-Replica architecture mein primary normally writes handle karta hai aur replicas uske data ki copies maintain karte hain. Replicas read traffic distribute karne mein help karte hain. Lekin replication asynchronous ho sakti hai aur automatic failover ke liye Sentinel ya Cluster jaise setup ki zaroorat hoti hai."
 
+# 🚀 Question 90: What Happens When Redis Primary Fails?
+
+## 📝 Answer (English — Interview Definition)
+
+When a Redis primary fails, the application may temporarily lose write availability. If high availability is configured using **Redis Sentinel** or **Redis Cluster**, an eligible replica can be promoted to become the new primary through failover.
+
+Applications must reconnect or discover the new primary. Because Redis replication is generally asynchronous, some recently acknowledged writes might not have reached the replica before the failure, so data loss is possible.
+
+If Redis is running as a standalone primary without a configured failover mechanism, automatic promotion of a replica does not happen.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo Redis architecture mein ek **Primary** aur ek **Replica** hai.
+
+1. Application writes ko Primary par send karti hai.
+2. Replica Primary ka data asynchronously copy karta rehta hai.
+3. Agar Primary fail ho jaaye, toh writes temporarily fail ya unavailable ho sakti hain.
+4. Agar Redis Sentinel ya Redis Cluster properly configured hai, toh eligible Replica ko promote karke naya Primary banaya ja sakta hai.
+5. Application ko naye Primary ka address discover karke reconnect karna hota hai.
+
+**Important:** Asynchronous replication ki wajah se Primary fail hone se pehle ki kuch recently acknowledged writes Replica tak nahi pahunchi hongi. Aisi writes failover ke baad lost ho sakti hain.
+
+## 🏗️ Architecture Diagram
+
+### Before failure
+
+~~~text
+      Application
+           |
+           v
+     Redis Primary
+           |
+      Replication
+           |
+           v
+     Redis Replica
+~~~
+
+### After failure — automatic failover configured
+
+~~~text
+      Redis Primary
+         FAILED
+            X
+
+      Redis Replica
+            |
+            | Promoted
+            v
+      New Redis Primary
+            ^
+            |
+      Application
+  reconnects/discovers it
+~~~
+
+Redis Sentinel monitors the primary and replicas and can coordinate automatic failover for non-clustered Redis. Redis Cluster also supports replica promotion when a primary fails.
+
+## 💻 Practical Example
+
+### A. Check Primary and Replica status
+
+Redis CLI mein run karo:
+
+~~~bash
+redis-cli INFO replication
+~~~
+
+Primary par output mein approximately ye dikhega:
+
+~~~text
+role:master
+connected_slaves:1
+~~~
+
+Replica par:
+
+~~~text
+role:slave
+master_link_status:up
+~~~
+
+Output Redis version aur configuration ke according vary kar sakta hai.
+
+### B. Redis Sentinel ke through failover
+
+Sentinel configured environment mein current Primary ka address discover karne ke liye:
+
+~~~bash
+redis-cli -p 26379 SENTINEL GET-MASTER-ADDR-BY-NAME mymaster
+~~~
+
+Yahan `mymaster` Sentinel configuration mein defined logical master name hai. Response current Primary ka IP address aur port batata hai; failover ke baad yeh address change ho sakta hai.
+
+**Production note:** Application ko hard-coded Primary address par permanently dependent nahi hona chahiye. Sentinel-aware client, Redis Cluster-aware client, ya deployment ke recommended discovery mechanism ka use karo.
+
+## 📊 Important Points
+
+| Situation | What happens? |
+|---|---|
+| Standalone Primary fails | Writes unavailable ho sakti hain; automatic promotion nahi hota without failover setup |
+| Primary fails with Sentinel | Sentinel may promote an eligible Replica |
+| Primary fails in Redis Cluster | An eligible Replica can be promoted, subject to cluster conditions |
+| Replica is behind | Latest acknowledged writes mein se kuch lost ho sakti hain |
+| Application connection | New Primary ko discover karke reconnect karna pad sakta hai |
+| No eligible Replica or failover requirements unmet | Failover delay ya fail ho sakta hai; service unavailable reh sakti hai |
+
+Redis replication asynchronous hoti hai, isliye Sentinel ya Cluster hone se zero data loss ki guarantee nahi milti.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "When a Redis primary fails, writes may become temporarily unavailable. If Redis Sentinel or Redis Cluster is configured, an eligible replica can be promoted to a new primary. The application must discover and reconnect to the new primary. Since replication is asynchronous, some recently acknowledged writes may be lost."
+- **Hinglish Quick Memory:** "Primary fail hone par writes temporarily unavailable ho sakti hain. Sentinel ya Redis Cluster configured ho toh Replica promote hoke naya Primary ban sakta hai. Application ko naye Primary se reconnect karna hota hai. Asynchronous replication ke kaaran kuch recent writes lost bhi ho sakti hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
