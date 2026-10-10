@@ -10854,6 +10854,189 @@ Here, `redisClient` is the already-connected Redis client. The example assumes J
 - **English Pitch:** "I use Redis as a centralized session store for session-based authentication. For JWT authentication, I normally verify the token signature and expiry without storing every access token. If immediate revocation is required, I store the JWT's unique `jti` in a Redis denylist with a TTL until token expiration. For refresh tokens, I maintain server-side records and rotation/revocation logic."
 - **Hinglish Quick Memory:** "Session-based login mein Redis session ID ke against session data store karta hai. JWT mein token normally self-contained hota hai, isliye har JWT ko Redis mein store karna zaroori nahi. Immediate logout ke liye `jti` ko Redis mein expiry tak store karke har request par check kar sakte hain."
 
+# 🚀 Question 112: How Do You Implement Rate Limiting Using Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+**Rate limiting restricts how many requests a client can make within a specified time window.** Redis can implement it by maintaining a request counter per client and tracking the counter's expiration. Requests within the configured limit are allowed; excess requests can be rejected with HTTP `429 Too Many Requests`.
+
+For concurrent requests, a Redis Lua script can increment the counter and set its expiry atomically. Redis also lets multiple application instances share the same counters.
+
+## 🗣️ Answer in Hinglish
+
+Rate limiting ka matlab hai ek user ya IP address kitni requests ek fixed time ke andar bhej sakta hai, uski limit set karna.
+
+Maan lo login API par limit hai **5 attempts per minute**:
+
+1. User login API request bhejta hai.
+2. Node.js us user/IP ke liye Redis mein request counter check karta hai.
+3. Limit ke andar hai toh request allow hoti hai.
+4. Limit exceed ho jaaye toh request reject hoti hai aur `429 Too Many Requests` return hota hai.
+5. Time window expire hone par counter reset ho jaata hai.
+
+**Redis kyu use karte hain?** Redis fast hai aur multiple Node.js server instances ek shared Redis counter use kar sakte hain. Isse har server ka separate in-memory counter maintain karne ki zaroorat nahi hoti.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+Client Request
+      |
+      v
+Express Rate-Limit Middleware
+      |
+      v
+Redis: Check / Increment Counter
+      |
+      +----------------------+
+      |                      |
+  Under Limit             Limit Exceeded
+      |                      |
+      v                      v
+ Continue to API          HTTP 429
+      |
+      v
+ Business Logic
+~~~
+
+## 💻 Practical Example — Node.js + Express + Redis
+
+Is example mein hum **fixed-window rate limiter** banayenge: maximum 5 requests per IP in 60 seconds.
+
+### Step 1: Install packages
+
+~~~bash
+npm install express redis
+~~~
+
+### Step 2: Configure Redis and rate-limit middleware
+
+~~~javascript
+const express = require("express");
+const { createClient } = require("redis");
+
+const app = express();
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redisClient.on("error", (err) => {
+  console.error("Redis error:", err.message);
+});
+
+const WINDOW_SECONDS = 60;
+const MAX_REQUESTS = 5;
+
+// Atomically increment the counter and set expiry if needed.
+const rateLimitScript = `
+  local count = redis.call("INCR", KEYS[1])
+  local ttl = redis.call("TTL", KEYS[1])
+
+  if count == 1 or ttl < 0 then
+    redis.call("EXPIRE", KEYS[1], ARGV[1])
+    ttl = tonumber(ARGV[1])
+  end
+
+  return {count, ttl}
+`;
+
+async function rateLimiter(req, res, next) {
+  try {
+    const clientId = req.ip;
+    const key = `rate-limit:${clientId}`;
+
+    const result = await redisClient.eval(rateLimitScript, {
+      keys: [key],
+      arguments: [String(WINDOW_SECONDS)],
+    });
+
+    const count = Number(result[0]);
+    const ttl = Number(result[1]);
+
+    res.set("X-RateLimit-Limit", String(MAX_REQUESTS));
+    res.set(
+      "X-RateLimit-Remaining",
+      String(Math.max(0, MAX_REQUESTS - count))
+    );
+
+    if (count > MAX_REQUESTS) {
+      res.set("Retry-After", String(Math.max(1, ttl)));
+
+      return res.status(429).json({
+        message: "Too many requests. Please try again later.",
+        retryAfterSeconds: Math.max(1, ttl),
+      });
+    }
+
+    next();
+  } catch (error) {
+    // This example uses a fail-closed policy when Redis is unavailable.
+    console.error("Rate limiter failed:", error.message);
+    return res.status(503).json({
+      message: "Rate-limiting service is temporarily unavailable.",
+    });
+  }
+}
+
+app.get("/api/products", rateLimiter, (req, res) => {
+  res.json({ message: "Products fetched successfully" });
+});
+
+async function startServer() {
+  await redisClient.connect();
+
+  app.listen(3000, () => {
+    console.log("Server running at http://localhost:3000");
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});
+~~~
+
+### Step 3: Test the API
+
+Repeatedly call:
+
+~~~http
+GET http://localhost:3000/api/products
+~~~
+
+The first 5 requests from the same IP within the active window are allowed. Further requests receive HTTP `429 Too Many Requests`, with a `Retry-After` header indicating the remaining window time.
+
+### Why use a Lua script?
+
+If `INCR` and `EXPIRE` are sent as separate commands, an application or connection failure between them can leave the counter without an expiry. The Lua script executes the increment and expiry logic atomically on Redis.
+
+## 📊 Important Points
+
+| Concept | Explanation |
+|---|---|
+| `INCR` | Request counter increment karta hai. |
+| `EXPIRE` | Counter key ki lifetime set karta hai. |
+| Lua script | Counter increment aur expiry setup ko atomically execute kar sakti hai. |
+| HTTP 429 | Client ne request limit exceed kar di. |
+| Shared Redis | Multiple app servers ek rate-limit counter share kar sakte hain. |
+| Fixed window | Har time window mein request count limit hota hai. |
+| Failure policy | Redis unavailable hone par requests allow hongi ya reject, ye explicitly decide karna hota hai. |
+
+### Common Rate-Limiting Algorithms
+
+| Algorithm | How it works | Typical use |
+|---|---|---|
+| Fixed window | Fixed interval mein requests count karta hai | Simple API limits |
+| Sliding window | Recent time interval ke requests track karta hai | More consistent limits |
+| Token bucket | Tokens replenish hote hain; available tokens requests allow karte hain | Controlled bursts of traffic |
+
+**Production notes:** Agar app reverse proxy/load balancer ke peeche hai, toh Express ka `trust proxy` configuration carefully set karo; otherwise IP identification incorrect ho sakti hai. Rate limit ko sirf IP se nahi, zaroorat ke according authenticated user ID ya API key se bhi identify kar sakte hain. Login aur OTP endpoints ke liye separate, stricter limits rakhna useful hota hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I implement rate limiting using Redis by maintaining a request counter per client and attaching a time-to-live to it. Requests below the configured limit are allowed, while requests exceeding the limit receive HTTP 429. For reliable concurrent updates, I can use an atomic Redis Lua script. Redis also allows multiple application instances to share the same counters."
+- **Hinglish Quick Memory:** "Redis mein user ya IP ke liye counter maintain karte hain. Request aane par counter increment hota hai, aur limit exceed hone par `429 Too Many Requests` return karte hain. `INCR` aur expiry ko Lua script mein rakhne se counter update atomic rehta hai. Multiple Node.js servers bhi same Redis counter use kar sakte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
