@@ -2121,6 +2121,161 @@ MERN applications mein choice features ke design layout par depend karti hai:
 - **English Pitch:** "Redis Strings link a single key to a binary-safe block of data, best suited for rigid values or overall JSON caching. Redis Hashes arrange internal tables under one single namespace, facilitating fast incremental reads and updates to specific key properties without handling the full object footprint."
 - **Hinglish Quick Memory:** String matlab single line lock entry. Hash matlab internal variables storage object. Agar poore object ko bina manipulate kiye direct store/read karna hai toh String use karo (JSON form mein). Par agar specific elements ko bina baaki data ko chede update karna hai, toh Hash run karo.
 
+# 🚀 Question 22: What Is the Difference Between Redis Set and Sorted Set?
+
+## 📝 Answer (English — Interview Definition)
+
+The core structural difference between a Redis Set and a Redis Sorted Set (ZSet) lies in the presence of a sorting metric and element ordering.
+
+While both data structures guarantee the absolute uniqueness of their members and prevent duplicates, a standard Redis Set is an unordered collection implemented via hash tables. Conversely, a Redis Sorted Set associates every member with a floating-point numerical 'Score' and dynamically arranges elements in memory based on this score using a dual data structure (Hash Table + Skip List). Sets are optimized for quick membership checks and set-theory mathematics, whereas Sorted Sets are engineered for low-latency ranking matrices and range lookups.
+
+## 🗣️ Answer in Hinglish
+
+Dono Redis data types unique values store karte hain aur duplicates ko automatically reject karte hain, lekin inka main difference ordering aur score ka hota hai:
+
+- **Set (Unordered Collection):** Yeh sirf unique elements ka ek group hota hai. Iske andar save kiye gaye data ka sequence ya index fix nahi hota.
+- **Sorted Set / ZSet (Score-Based Order):** Yeh unique elements ko ek numerical value yaani Score ke sath link karta hai. Redis is score ke dynamic graph par data ko automatic chote se bade (ascending) order mein sort karke rakhta hai.
+
+~~~text
+[ Redis SET Layout (No Order) ]
+Key: "skills" ──► { "Node.js", "React", "MongoDB" }
+
+[ Redis SORTED SET Layout (Auto-Sorted) ]
+Key: "leaderboard" ──► Member: "Amit"  ──► Score: 100
+                       Member: "Rahul" ──► Score: 200
+                       Member: "Priya" ──► Score: 300
+~~~
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // ====== 1. REDIS SET APPROACH ======
+  // Duplicate "Node.js" automatically ignore ho jayega
+  await redis.sAdd("skills", ["Node.js", "React", "Node.js"]);
+  console.log("Set Output (Unique, Unordered):", await redis.sMembers("skills"));
+
+  // ====== 2. REDIS SORTED SET APPROACH ======
+  // Score ke adhaar par elements line se arrange ho jayenge
+  await redis.zAdd("leaderboard", [
+    { score: 100, value: "Amit" },
+    { score: 200, value: "Rahul" },
+    { score: 300, value: "Priya" }
+  ]);
+  console.log("ZSet Output (Sorted by Score):", await redis.zRangeWithScores("leaderboard", 0, -1));
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Choice Strategy
+
+| Production Requirement | Suitable Redis Type | Architectural Justification |
+|---|---|---|
+| User ke unique interests trackers | Set | Hamein sirf check karna hai ki user ko interest hai ya nahi, sequence ya score matter nahi karta. |
+| Unique webinar participants audit | Set | Ek hi participant double count nahi hona chahiye dashboard par. |
+| Real-time multiplayer leaderboard | Sorted Set | Game score ke basis par realtime ranks (Rank 1, Rank 2) render karni hain. |
+| Top-selling product dynamic rows | Sorted Set | Purchase volume ko score banakar trending list up-to-date rakhni hai. |
+
+## 📋 Direct Matrix Comparison Table
+
+| Feature | Redis Set | Redis Sorted Set (ZSet) |
+|---|---|---|
+| Duplicate Prevention | 🟢 Strictly Enforced (Unique only) | 🟢 Strictly Enforced (Unique only) |
+| Element Sequencing | 🔴 Unordered (No guaranteed order) | 🟢 Automatically sorted by score metrics |
+| Score System | No weights or scores exist | Every element requires a mandatory floating-point score |
+| Core Commands | SADD, SMEMBERS, SISMEMBER | ZADD, ZRANGE, ZREVRANK |
+| Internal Complexity | O(1) for most membership lookups | O(log N) for insertions and sorting operations |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Sets store unique members without guaranteed ordering, whereas Sorted Sets store unique members linked to numeric scores and maintain real-time sorted order. Use Sets for distinct tags or membership tracking, and Sorted Sets for high-throughput leaderboards and ranking layouts."
+- **Hinglish Quick Memory:** Set aur ZSet dono mein unique items rehte hain. Fark yeh hai ki Set flat bag ki tarah hai jisme order fix nahi hota, jabki ZSet mein har value ke sath ek score map hota hai jisse data live memory mein automatic sort hokar leaderboard banata hai.
+
+---
+
+# 🚀 Question 23: What Is the Difference Between Redis List and Set?
+
+## 📝 Answer (English — Interview Definition)
+
+The primary architectural distinction between a Redis List and a Redis Set revolves around element ordering and the tolerance of duplicate values.
+
+A Redis List is an ordered sequence of strings structurally designed as a doubly linked list. It allows duplicate entries and excels at fast append/prepend insertions from the head or tail in constant O(1) time. Conversely, a Redis Set is an unordered collection of unique strings that strictly prevents duplicate members. Sets provide high-speed O(1) membership evaluation checks (SISMEMBER) and native set operations, whereas Lists are ideal for procedural chronological sorting and worker queues.
+
+## 🗣️ Answer in Hinglish
+
+Bhai, Redis List aur Set ka main mukabla elements ke order aur duplicates space capability par hota hai:
+
+- **List (Ordered Array with Duplicates):** Yeh ek sequential array ki tarah kaam karta hai. Isme data ka insertion order safe rehta hai aur ek hi string entry multiple times repeat ho sakti hai.
+- **Set (Unordered Unique Group):** Yeh strict system hai jo duplicates ko dekhte hi ban kar deta hai. Isme insertion order ka koi wajood nahi hota, balki focus target checks par hota hai.
+
+~~~text
+[ Redis LIST Layout (Duplicates & Index Order) ]
+Key: "tasks" ──► [ Index 0: "Task A", Index 1: "Task B", Index 2: "Task A" ]
+
+[ Redis SET Layout (No Duplicates, Unordered) ]
+Key: "skills" ──► { "Node.js", "React" }  <-- Double Node.js entry here is blocked
+~~~
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // ====== 1. LIST: Duplicates are perfectly fine ======
+  await redis.rPush("tasks", ["Task A", "Task B", "Task A"]);
+  console.log("List Layout (Ordered with Duplicates):", await redis.lRange("tasks", 0, -1));
+
+  // ====== 2. SET: Duplicates are stripped out ======
+  await redis.sAdd("skills", ["Node.js", "React", "Node.js"]);
+  console.log("Set Layout (Unique values only):", await redis.sMembers("skills"));
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World Application Design Use Case Matrix
+
+MERN backend architecture design karte waqt operational differences ke according logic distribute kiya jata hai:
+
+| Practical Target Case | Suitable Redis Type | Why this option? |
+|---|---|---|
+| Recent activity notification feed | List | Hamein timeline maintain karni hai taaki latest alerts top index par sequentially render hon. |
+| Background asynchronous tasks queue | List | Job workers ko items sequential pipeline framework (RPOP / LPUSH) par process karne hain. |
+| Dynamic product tag indexing lists | Set | E-commerce items ke search tags (e.g., "electronics") duplicate hone se bachane hain. |
+| Mutual friend matching algorithm | Set | SINTER command ka use karke do collections ke common element groups ko instantly link karna hai. |
+
+## 📋 Operational Commands Summary Table
+
+| Operational Attribute | Redis List | Redis Set |
+|---|---|---|
+| Ordering Preservation | 🟢 Guaranteed (Maintains insertion sequence) | 🔴 Not guaranteed (Random memory topology) |
+| Duplicate Values Allowed | 🟢 Yes (Permitted completely) | 🔴 No (Strictly rejected on insertion) |
+| Write/Add Commands | LPUSH, RPUSH | SADD |
+| Read/Fetch Commands | LRANGE (Bound by index positions) | SMEMBERS (Loads entire structural array) |
+| Removal Mechanics | LPOP, RPOP | SREM |
+| Best Production Architecture | Task Pipelines, Chronological Logs, FIFO Queues | User Tag Matrix, Unique Lookups, Shared Intersections |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Redis List is a strictly ordered sequence that tolerates duplicate strings, making it excellent for FIFO execution queues. In contrast, a Redis Set is an unordered domain that eliminates duplicates natively, optimized for membership analytics and high-speed distinct tagging streams."
+- **Hinglish Quick Memory:** List matlab queue jahan elements line se lagte hain aur ek naam do baar aa sakta hai (RPUSH system). Set matlab duplicate-free system jahan data random rehta hai par jo bhi item hoga woh single unique entity hoga (SADD system).
+
 ---
 
 *More answers will be added in question order, using this format.*
