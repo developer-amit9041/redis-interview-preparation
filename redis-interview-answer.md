@@ -4062,6 +4062,68 @@ console.log("Cached data:", cachedData); // null if missing/expired
 - **English Pitch:** "When a Redis key expires, it is no longer returned as a valid cache entry. Redis uses passive and active expiration mechanisms. In cache-aside, the next read can miss the cache, so the application fetches the data from the database and may repopulate Redis with a renewed TTL."
 - **Hinglish Quick Memory:** TTL complete hone ke baad Redis key ko valid data ke roop mein return nahi karta. Agli request par Cache Miss ho sakta hai; cache-aside backend MongoDB se fresh data laakar Redis ko dobara populate kar sakta hai.
 
+# 🚀 Question 46: How Do You Set TTL for a Cache?
+
+## 📝 Answer (English — Interview Definition)
+
+TTL (Time To Live) defines how long a Redis key remains valid before it expires. Redis supports setting expiration when creating a string key with `SET` options such as `EX` (seconds) or `PX` (milliseconds), or adding expiration to an existing key with commands such as `EXPIRE` and `PEXPIRE`. The remaining lifetime can be inspected with `TTL` or `PTTL`.
+
+## 🗣️ Answer in Hinglish
+
+TTL ka full form **Time To Live** hai. Isse hum set karte hain ki Redis mein koi key kitni der tak valid rahegi:
+
+- **60 seconds:** `{ EX: 60 }`
+- **5 minutes:** `{ EX: 300 }`
+- **1 hour:** `{ EX: 3600 }`
+
+Existing key par baad mein bhi expiry laga sakte hain, jaise `redis.expire("user:102", 300)`.
+
+### TTL Return Values
+
+- **Positive integer** (jaise `180`): key exist karti hai aur lagbhag 180 seconds remaining hain.
+- **`-1`**: key exist karti hai, lekin us par expiration set nahi hai.
+- **`-2`**: key exist nahi karti (for example, never created, deleted, or expired).
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+// Method A: Set the value and TTL together (5 minutes)
+await redis.set(
+  "user:101",
+  JSON.stringify({ name: "Amit", role: "Developer" }),
+  { EX: 300 }
+);
+
+// Method B: Set a TTL on an existing key
+await redis.hSet("user:102", {
+  name: "Rahul",
+  status: "active"
+});
+await redis.expire("user:102", 300);
+
+// Method C: Inspect the remaining lifetime in seconds
+const remainingSeconds = await redis.ttl("user:101");
+console.log("Remaining TTL (seconds):", remainingSeconds);
+
+// Method D: Remove expiration so the key no longer has a TTL
+await redis.persist("user:102");
+~~~
+
+## 📋 TTL Command Matrix
+
+| Command / Strategy | What It Does | Typical Use |
+|---|---|---|
+| `SET key value EX 60` | Sets a string value with a 60-second TTL. | Set value and expiry in one operation. |
+| `EXPIRE key 300` | Sets an existing key's TTL in seconds. | Apply expiration to hashes, lists, sets, and other key types. |
+| `PEXPIRE key 5000` | Sets an existing key's TTL in milliseconds. | Millisecond-resolution expiry. |
+| `TTL key` / `PTTL key` | Reports remaining TTL in seconds / milliseconds. | Inspect the expiration countdown. |
+| `PERSIST key` | Removes the key's expiration. | Make an existing key persistent until deleted or evicted by other policies. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "TTL controls how long a Redis key remains valid. Set it at creation with `EX` or `PX`, or apply it to an existing key with `EXPIRE` or `PEXPIRE`. Use `TTL` or `PTTL` to inspect the remaining lifetime; `-1` means no expiration is set, and `-2` means the key does not exist."
+- **Hinglish Quick Memory:** TTL se decide hota hai Redis key kitni der valid rahegi. Nayi string key ke saath `{ EX: seconds }` use karo, existing key par `redis.expire()` lagao, aur remaining time jaanne ke liye `redis.ttl()` check karo.
+
 ---
 
 *More answers will be added in question order, using this format.*
