@@ -4898,6 +4898,70 @@ Yeh example dikhata hai ki RDB snapshots ke beech ka data-loss window ho sakta h
 - **English Pitch:** "RDB is Redis's snapshot-based persistence mechanism. It saves a point-in-time binary dataset, usually to `dump.rdb`. `BGSAVE` performs the save in a child process, while `SAVE` blocks the server. RDB offers compact backups and fast recovery, but changes after the last snapshot may be lost."
 - **Hinglish Quick Memory:** RDB Redis memory ka periodic snapshot hai jo `dump.rdb` file mein save hota hai. Production mein generally `BGSAVE` use hota hai kyunki save background child process se hota hai. Snapshot ke baad ke changes crash hone par lost ho sakte hain.
 
+# 🚀 Question 58: What Is Redis AOF?
+
+## 📝 Answer (English — Interview Definition)
+
+AOF (Append Only File) is a Redis persistence mechanism that records write operations in an append-only log. During recovery, Redis replays the recorded operations to reconstruct the dataset. Its durability depends on the configured `appendfsync` policy and the behavior of the operating system and storage device.
+
+The common `appendfsync` options are `always`, `everysec`, and `no`. `everysec` is a common balance between performance and durability, but it does not provide an unconditional guarantee that exactly no more than one second of writes can ever be lost in every failure scenario. AOF files can grow over time, so Redis supports background AOF rewriting to create a more compact representation of the dataset's write history.
+
+## 🗣️ Answer in Hinglish
+
+AOF ka full form **Append Only File** hai. RDB periodic snapshot save karta hai, jabki AOF Redis ke write operations ko append-only log mein record karta hai. Recovery ke waqt Redis log ko replay karke dataset reconstruct karta hai.
+
+### ⚙️ Configuration in `redis.conf`
+
+~~~text
+appendonly yes
+appendfsync everysec
+~~~
+
+### ⚡ Understanding `appendfsync` Options
+
+1. **`always`:** Har write ke baad fsync karne ki koshish hoti hai. Durability generally strong hoti hai, lekin write latency zyada ho sakti hai.
+2. **`everysec`:** Redis approximately once per second fsync karta hai. Ye performance aur durability ka common trade-off hai; exact loss window crash aur storage behavior par depend kar sakti hai.
+3. **`no`:** Redis fsync timing operating system par chhod deta hai. Performance better ho sakti hai, lekin disk par data sync hone mein zyada delay aur loss risk ho sakta hai.
+
+## 💻 Practical Code Example & CLI Verification
+
+~~~javascript
+// Write operations issued from the Node.js backend
+await redis.set("user:101", JSON.stringify({ name: "Amit", role: "Developer" }));
+await redis.set("user:101:status", "active");
+~~~
+
+AOF configuration aur current persistence status inspect karne ke liye:
+
+~~~bash
+redis-cli INFO persistence
+~~~
+
+Useful fields include `aof_enabled` and `aof_rewrite_in_progress`. Actual field availability can vary by Redis version and configuration.
+
+### 💡 What Is AOF Rewrite?
+
+Continuous logging se AOF file grow ho sakti hai. AOF rewrite log ko current dataset reconstruct karne ke liye aavashyak commands ki more compact representation mein rewrite karta hai. Background rewrite trigger karne ke liye command hai:
+
+~~~bash
+redis-cli BGREWRITEAOF
+~~~
+
+## 📊 RDB vs AOF — Quick Comparison
+
+| Feature | RDB Snapshot (Q57) | AOF Log (Q58) |
+|---|---|---|
+| Data representation | Point-in-time binary snapshot. | Append-only log of write operations. |
+| File size | Often compact. | Can grow larger before rewrite. |
+| Recovery | Usually fast because a snapshot is loaded. | May take longer because logged operations must be replayed. |
+| Potential data loss | Changes after the last successful snapshot may be lost. | Depends on the fsync policy and failure mode. |
+| Typical use | Snapshots and backup/recovery workflows. | More granular recovery when configured appropriately. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "AOF persists Redis write operations in an append-only log and replays them during recovery. Its durability depends on the `appendfsync` policy: `always`, `everysec`, or `no`. Background AOF rewriting helps reduce the log's size."
+- **Hinglish Quick Memory:** AOF write commands ko append-only log mein record karta hai aur restart ke waqt replay karta hai. `appendfsync everysec` common performance/durability balance hai, par exact data-loss window system behavior par depend karti hai. File size manage karne ke liye AOF rewrite hota hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
