@@ -8533,6 +8533,81 @@ Redis Cluster provides sharding and replica-based failover, but applications mus
 - **English Pitch:** "Redis Cluster is a distributed Redis deployment that shards data across multiple primary nodes using 16,384 hash slots. It supports horizontal scaling and uses replicas to help provide automatic failover. Applications need a cluster-aware client to route requests and handle redirections."
 - **Hinglish Quick Memory:** "Redis Cluster data ko hash slots ke through multiple primary nodes mein distribute karta hai. Isse horizontal scaling milti hai, aur replicas failover mein help karte hain. Node.js app mein cluster-aware Redis client use karna chahiye."
 
+# 🚀 Question 95: Why Do We Need Redis Cluster?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Cluster is used to scale Redis horizontally by distributing data across multiple primary nodes.** It increases total data capacity and can improve aggregate throughput across nodes. It also supports high availability through replicas and automatic failover when an eligible replica can be promoted after a primary failure.
+
+## 🗣️ Answer in Hinglish
+
+Redis Cluster ki help tab lete hain jab application ka Redis data aur traffic ek server ke resources se zyada ho jaaye.
+
+1. **Horizontal scaling:** Data ko multiple primary nodes mein distribute kar sakte hain.
+2. **More data capacity:** Dataset ka alag-alag portion different nodes par store hota hai.
+3. **Higher aggregate throughput:** Different nodes independently requests handle kar sakte hain.
+4. **High availability:** Primary node fail ho, toh uski replica eligible hone par promote ho sakti hai.
+5. **Automatic failover:** Cluster configured conditions ke under failure detect karke replica ko primary bana sakta hai.
+
+**Important:** Redis Cluster zero downtime ya zero data loss ki guarantee nahi deta. Redis replication generally asynchronous hoti hai, isliye failover ke aas-paas recent writes lose ho sakti hain.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+             MERN / Node.js App
+                      |
+               Cluster Client
+                      |
+          +-----------+-----------+
+          |           |           |
+          v           v           v
+      Primary A   Primary B   Primary C
+       Data A      Data B      Data C
+          |           |           |
+          v           v           v
+       Replica A   Replica B   Replica C
+~~~
+
+Data multiple primaries mein shard hota hai, aur replicas apne respective primaries ka data replicate karti hain.
+
+## 💻 Practical Redis CLI Example
+
+Cluster ki health check karne ke liye:
+
+~~~bash
+redis-cli -c CLUSTER INFO
+~~~
+
+Nodes aur unke roles dekhne ke liye:
+
+~~~bash
+redis-cli -c CLUSTER NODES
+~~~
+
+Cluster par key store aur retrieve karne ke liye:
+
+~~~bash
+redis-cli -c SET user:101 "Amit"
+redis-cli -c GET user:101
+~~~
+
+Yahan `-c` cluster-aware CLI mode enable karta hai, jo zaroorat padne par command ko correct node ki taraf redirect follow karne mein help karta hai. Commands tabhi work karengi jab cluster pehle se configured ho aur connection details valid hon.
+
+## 📊 Important Points
+
+| Need | Redis Cluster ka benefit |
+|---|---|
+| Dataset ek server par fit nahi ho raha | Data multiple primaries mein distribute hota hai |
+| High request volume | Nodes across cluster traffic handle karte hain |
+| Primary failure | Eligible replica promote ho sakti hai |
+| Horizontal scaling | Nodes add karke capacity badhai ja sakti hai, with appropriate resharding |
+| Single Redis instance ki limitations | Data aur request handling multiple nodes par spread hoti hai |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "We use Redis Cluster for horizontal scaling, increased data capacity, and high availability. It distributes data across multiple primary nodes using hash slots and uses replicas to support failover. However, it does not guarantee zero downtime or zero data loss."
+- **Hinglish Quick Memory:** "Redis Cluster tab use karte hain jab ek Redis server ki capacity ya throughput insufficient ho. Yeh data ko multiple primaries mein distribute karta hai aur replicas ke through failover support karta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
