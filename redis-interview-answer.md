@@ -256,6 +256,134 @@ Isse repeated database reads aur MongoDB par load kam ho sakta hai. Cache TTL au
 
 ---
 
+# 🚀 Question 3: Is Redis a Database or a Cache?
+
+## 📝 Answer (English)
+
+Redis is an **in-memory data store that can be used as both a database and a cache**. The role depends on how the application uses Redis and how it is configured.
+
+- **As a cache:** Redis stores a copy of frequently accessed data, usually with a TTL (time to live), to improve response times and reduce repeated queries to the primary database.
+- **As a database:** An application can read and write its data directly in Redis. Redis offers persistence options such as **RDB snapshots** and **AOF (Append-Only File)**, but durability depends on the configuration and workload. The application should evaluate recovery requirements, memory limits, and data-loss tolerance before choosing Redis as its primary data store.
+
+The right choice depends on the application’s data model, durability requirements, performance needs, and operational setup.
+
+## 🗣️ Answer (Hinglish)
+
+Redis ek versatile in-memory data store hai jo **cache aur database dono** ki tarah kaam kar sakta hai. Yeh depend karta hai ki application usko kis purpose ke liye use kar rahi hai aur persistence kaise configure ki gayi hai.
+
+### 1. Redis as a Cache
+
+Jab hum MongoDB jaise primary database ke frequently accessed data ki copy Redis mein store karte hain, taaki repeated requests par baar-baar database query na chalani pade.
+
+**Example:** Product details ko 5 minutes ke liye Redis mein cache karna.
+
+### 2. Redis as a Database
+
+Jab application data ko directly Redis mein read aur write karti hai, toh Redis application ke data store ka role le sakta hai. Aise use case mein RDB/AOF persistence, recovery process, RAM requirements aur data-loss tolerance ko carefully configure karna chahiye.
+
+**Example:** Live counters, leaderboard state, ya session data. Critical order/invoice records ke liye primary database aur recovery requirements ko separately evaluate karna zaroori hai.
+
+**Simple words mein:** Redis sirf cache nahi hai. Use cache ke roop mein use karne par yeh kisi doosre database ki reads kam karta hai; database ke roop mein use karne par application directly Redis mein data store karti hai.
+
+## 💻 Code Examples — Redis in Both Roles
+
+### ✅ Example 1: Redis as a Cache (MERN Stack)
+
+Is example mein product JSON ko 5 minutes (300 seconds) ke TTL ke saath store kiya ja raha hai.
+
+```javascript
+const product = {
+  name: "Laptop",
+  price: 50000,
+};
+
+// Store a serialized product for 5 minutes.
+await redis.set(
+  "product:101",
+  JSON.stringify(product),
+  { EX: 300 }
+);
+
+// Read the cached product.
+const cachedValue = await redis.get("product:101");
+
+if (cachedValue !== null) {
+  const cachedProduct = JSON.parse(cachedValue);
+  console.log(cachedProduct);
+  // { name: "Laptop", price: 50000 }
+}
+```
+
+**How it works:** `EX: 300` key ko 300 seconds ke baad expire karne ke liye TTL set karta hai. Cache miss ho toh application primary database se product fetch kar sakti hai, phir result ko Redis mein cache kar sakti hai.
+
+### ✅ Example 2: Redis as a Direct Data Store
+
+Yahan application counter ko directly Redis mein store aur retrieve karti hai.
+
+```javascript
+// Store the current counter value in Redis.
+await redis.set("total:orders", "1500");
+
+// Read the value directly from Redis.
+const totalOrders = await redis.get("total:orders");
+console.log(totalOrders); // "1500"
+```
+
+**Note:** Example sirf demonstrate karta hai ki application directly Redis mein value rakh sakti hai. Real order records ya financially critical data ke liye persistence, recovery, consistency aur backup requirements ke basis par appropriate source of truth choose karein.
+
+## 🔄 Real-World MERN Architecture — MongoDB + Redis
+
+MERN applications mein MongoDB aur Redis aksar saath kaam karte hain; dono ek-doosre ke alternatives hona zaroori nahi hai.
+
+```text
+                 [ React Frontend ]
+                         |
+                         v
+                [ Node.js / Express ]
+                         |
+             +-----------+-----------+
+             |                       |
+             v                       v
+      [ Redis Cache ]        [ MongoDB Primary DB ]
+      - Cached product data  - User accounts
+      - Session/cache data   - Orders and invoices
+      - Rate-limit counters  - Durable business records
+             ^
+             |
+      Cache miss ke baad
+      MongoDB result cache
+      mein store ho sakta hai
+```
+
+- **Redis Cache:** Frequently accessed data ko quickly serve karne aur repeated reads kam karne mein help karta hai.
+- **MongoDB:** Is architecture mein durable business records ka primary source of truth rehta hai.
+- **Cache miss:** API MongoDB se data fetch karke Redis mein cache kar sakti hai.
+- **Cache invalidation:** MongoDB data update hone par related Redis key ko refresh ya delete karne ki strategy honi chahiye.
+
+## 📋 Role Comparison Table
+
+| Feature | Redis as a Cache | Redis as a Database |
+|---|---|---|
+| **Primary purpose** | Faster reads and reduced primary DB load | Application data directly store karna |
+| **Data source** | Usually MongoDB/SQL is the source of truth | Redis itself can be the data source |
+| **TTL** | Often used to expire cached values | Optional; depends on the data and use case |
+| **Persistence** | Cached values can often be rebuilt | RDB/AOF and recovery strategy need careful planning |
+| **Common use cases** | Product/profile cache, query results | Counters, leaderboards, sessions, and suitable direct data-store use cases |
+| **Main risk to consider** | Stale cache or invalidation problems | Data recovery, durability configuration, and RAM capacity |
+
+## ⏱️ Easy Revision — 1-Minute Notes
+
+- Redis ek in-memory data store hai jo cache aur database dono ki tarah use ho sakta hai.
+- **Cache role:** Frequently accessed data ki copy store karta hai, taaki response time improve ho aur primary DB queries kam hon.
+- **Database role:** Application data directly Redis mein read/write kar sakti hai.
+- RDB aur AOF persistence options dete hain, lekin durability configuration par depend karti hai.
+- MERN applications mein MongoDB ko primary database aur Redis ko caching layer ke roop mein saath use karna common approach hai.
+- Cache TTL aur invalidation plan karein, aur Redis ko primary store banane se pehle recovery, memory aur data-loss requirements assess karein.
+
+**Interview answer to remember:** “Redis is an in-memory data store that can be used as both a database and a cache. As a cache, it improves performance by storing frequently accessed data. As a database, it can store application data directly, with durability depending on its persistence and recovery configuration.”
+
+---
+
 ---
 
 *More answers will be added in question order, using this format.*
