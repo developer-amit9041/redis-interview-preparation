@@ -5217,6 +5217,68 @@ Exact persistence settings ko durability requirements, Redis version, disk perfo
 - **English Pitch:** "Yes, Redis can use RDB and AOF together. RDB provides compact point-in-time snapshots, while AOF records write operations according to its fsync policy. When both are enabled, Redis normally uses AOF for startup recovery, but actual durability depends on configuration and storage behavior."
 - **Hinglish Quick Memory:** RDB aur AOF dono saath chala sakte hain. RDB snapshot backup deta hai, AOF write logs record karta hai. Restart par Redis normally AOF se recover karta hai, lekin zero data loss ki guarantee sirf in settings se nahi milti.
 
+# 🚀 Question 63: What Happens to Redis Data After a Restart?
+
+## 📝 Answer (English — Interview Definition)
+
+What happens to Redis data after a restart depends on the server's persistence configuration and the state of its persistence files.
+
+- **Persistence disabled:** The in-memory dataset is not restored from an RDB or AOF file after restart.
+- **RDB enabled:** Redis loads the dataset from the latest usable RDB snapshot. Changes made after that snapshot may be missing.
+- **AOF enabled:** Redis replays the AOF log to reconstruct the dataset, with the possible recovery point depending on the configured fsync policy and file validity.
+- **Both enabled:** Redis normally uses AOF for startup recovery because it is expected to contain a more complete state than the latest RDB snapshot.
+
+Keys with TTLs can expire according to their expiration timestamps, so not every restored key will necessarily remain available. For a cache-aside architecture, the application should also be able to reload reconstructable data from its primary database.
+
+## 🗣️ Answer in Hinglish
+
+Redis restart hone ke baad data wapas milega ya nahi, yeh persistence setup par depend karta hai:
+
+- **Persistence off:** RDB/AOF se restore nahi hoga; in-memory dataset restart ke baad available nahi rahega.
+- **RDB enabled:** Redis latest usable `dump.rdb` snapshot se data load karega. Last snapshot ke baad ke changes missing ho sakte hain.
+- **AOF enabled:** Redis AOF log replay karke dataset rebuild karega. Kitna recent data recover hoga, yeh fsync policy aur file/storage behavior par depend karta hai.
+- **RDB + AOF enabled:** Startup par Redis normally AOF se recovery karta hai, kyunki AOF zyada complete state contain karne ki expectation hoti hai.
+
+Ek aur point: TTL wali keys ka expiry time bhi matter karta hai. Persistence file se load hone ke baad bhi expired key valid cache entry ke roop mein available nahi rehni chahiye. Agar Redis reconstructable cache hai, toh Node.js backend ko MongoDB se cache refill karne ka fallback path bhi rakhna chahiye.
+
+## 💻 Practical Code Example & CLI Verification
+
+~~~javascript
+// Write a sample key from Node.js
+await redis.set(
+  "user:101",
+  JSON.stringify({ name: "Amit", role: "Developer" })
+);
+~~~
+
+Redis restart ke baad persistence status aur key availability check karne ke liye:
+
+~~~bash
+redis-cli INFO persistence
+redis-cli GET user:101
+~~~
+
+`GET` ka result key ki existence, TTL/expiration, persistence mode, and other runtime conditions par depend karega.
+
+## 📋 Post-Restart System State Matrix
+
+| Configuration | Expected Recovery Behavior | Important Caveat |
+|---|---|---|
+| Persistence disabled | Dataset is not restored from RDB/AOF persistence files. | In-memory data is lost across restart unless another recovery source exists. |
+| RDB active | Loads the latest usable snapshot. | Writes after the snapshot may be lost. |
+| AOF active | Replays the AOF log. | Recovery point depends on fsync policy and file validity. |
+| RDB + AOF | Normally prefers AOF for startup recovery. | Does not mean zero data loss is guaranteed. |
+| Cache-aside with MongoDB source | Application can repopulate missing cache entries on demand. | Cache misses can temporarily increase DB load after restart. |
+
+## ⚠️ MERN Architecture Rule
+
+Agar Redis cache restart ke baad empty ya partially restored ho, toh Express routes ko database fallback properly handle karna chahiye. Popular keys ke liye cache warming, TTL jitter, request coalescing, aur database load controls use karna helpful ho sakta hai—warna cold-cache traffic MongoDB par sudden load badha sakta hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis data recovery after restart depends on persistence configuration. With RDB, Redis loads the latest usable snapshot; with AOF, it replays the write log; and when both are enabled, it normally uses AOF for recovery. With persistence disabled, the in-memory dataset is not restored from persistence files."
+- **Hinglish Quick Memory:** Restart ke baad Redis RDB snapshot ya AOF log se data restore kar sakta hai. Dono enabled hon toh normally AOF use hota hai. Persistence off ho toh data RDB/AOF se wapas nahi aata, isliye cache-aside apps ko MongoDB se refill ka fallback rakhna chahiye.
+
 ---
 
 *More answers will be added in question order, using this format.*
