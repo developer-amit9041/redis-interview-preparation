@@ -1958,6 +1958,169 @@ const totalLikesCount = await redis.sCard("product:101:likes");
 - **English Pitch:** "A Redis Set is an unordered matrix of distinct string values that natively rejects duplicates. It features ultra-fast lookup times and supports robust set operations like intersection (SINTER) or counting total members via SCARD without rendering the full array structure."
 - **Hinglish Quick Memory:** Set ka matlab hai duplicate-free zone. Isme same entry do baar nahi ja sakti. SADD se entries insert karo, SMEMBERS se read karo, SISMEMBER se value crosscheck karo, aur SINTER ka use karke do alag user profiles ke mutual connections nikaal lo.
 
+# 🚀 Question 20: What Is Redis Sorted Set (ZSet)?
+
+## 📝 Answer (English — Interview Definition)
+
+A Redis Sorted Set (ZSet) is an advanced, non-repeating collection of unique string members, where each member is mapped to a floating-point numeric value called a 'Score'.
+
+The core feature of a ZSet is that Redis automatically and dynamically sorts the collection by score on insertion. If multiple members have the same score, they are sorted lexicographically. Internally powered by a dual data structure of a skip list and a hash table, it guarantees (O(log N)) time complexity for insertions, updates, and lookups, making it the supreme choice for real-time gaming leaderboards, trending post systems, and priority task networks.
+
+## 🗣️ Answer in Hinglish
+
+Redis Sorted Set (ZSet) ek aisa unique collection hai jisme har member ke sath ek numeric index ya 'Score' juda hota hai.
+
+Aapko data ko manually sort karne ki koi zaroorat nahi padti; Redis automatically unhe lowest score se highest score ke order mein line se laga deta hai:
+
+```text
+Member (Unique Value)         Associated Score
+-----------------------       ----------------
+"Amit"          ───►          100
+"Rahul"         ───►          200
+"Priya"         ───►          300
+```
+
+### 💡 Key Characteristics
+
+- **Unique Members:** Set ki tarah duplicate values allowed nahi hain. Agar aap same member ko alag score ke sath add karoge, toh uska score update ho jayega.
+- **Auto-Sorting:** Data live memory mein humesha sorted rehta hai. Iska use live multiplayer gaming points display karne aur top trending e-commerce products dikhane mein hota hai.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. ZADD — Players ko unke game scores ke sath insert karna
+  await redis.zAdd("leaderboard", [
+    { score: 100, value: "Amit" },
+    { score: 200, value: "Rahul" },
+    { score: 300, value: "Priya" }
+  ]);
+
+  // 2. ZRANGE — Ascending order (lowest score first) mein list load karna
+  const ascList = await redis.zRangeWithScores("leaderboard", 0, -1);
+  console.log("Ascending Ranking:", ascList);
+
+  // 3. ZRANGE with REV — Descending order (highest score first) mein rank 1 player nikalna
+  const topPlayer = await redis.zRangeWithScores("leaderboard", 0, 0, { REV: true });
+  console.log("🏆 Rank 1 Player:", topPlayer);
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+```
+
+## 🔄 Real-World MERN Usage Pattern (Live Update Leaderboard)
+
+MERN application mein jab kisi player ka score match ke dauran change hota hai, toh cache change karna kafi efficient hota hai:
+
+```javascript
+// Score ko update karke 500 se direct 750 karna (Automatic repositioning)
+await redis.zAdd("leaderboard", { score: 750, value: "player101" });
+
+// Sub-millisecond mein top 5 performers load kar lena frontend dashboard ke liye
+const topFive = await redis.zRangeWithScores("leaderboard", 0, 4, { REV: true });
+```
+
+## 📋 Essential ZSet Commands Table
+
+| Command | Technical Purpose | Production Example |
+|---|---|---|
+| ZADD | Member ko custom numeric score ke sath map ya update karna. | `ZADD scores 1500 "user_99"` |
+| ZRANGE | Data ko ascending score indexes par read karna. | `ZRANGE scores 0 -1` |
+| ZREVRANGE | Data ko high-to-low score structure par fetch karna. | Natively using `ZRANGE` + `REV` |
+| ZSCORE | Kisi targeted member ka absolute value score check karna. | `ZSCORE scores "user_99"` |
+| ZREVRANK | Pata lagana ki user descending view mein kis exact rank par hai. | `ZREVRANK scores "user_99"` |
+| ZREM | Targeted high-score entity item ko data pool se drop karna. | `ZREM scores "user_99"` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Redis Sorted Set maps unique string elements to specific numerical scores and handles real-time arrangement natively. It scales effortlessly via O(log N) operations, rendering it ideal for low-latency leaderboards, analytics rankings, and priority task workers."
+- **Hinglish Quick Memory:** ZSet matlab Set plus absolute ordering system. Isme member duplicate nahi ho sakta aur data hamesha automatic line se arrange rehta hai. ZADD se numbers load honge, ZRANGE se output aayega, aur REV: true daal kar highest points ka system filter kar sakte ho.
+
+---
+
+# 🚀 Question 21: What Is the Difference Between String and Hash in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+The primary architectural distinction between a Redis String and a Redis Hash is the structural hierarchy of data storage.
+
+A Redis String maps a single top-level key to a single chunk of data (up to 512MB), which can be text, numbers, or serialized JSON. Conversely, a Redis Hash maps a single top-level key to a nested table of independent field-value pairs, acting as a flat schema object. While a String forces the application to deserialize the entire data package even for minor property reads, a Hash permits direct granular mutations of individual attributes without reading or updating the surrounding record.
+
+## 🗣️ Answer in Hinglish
+
+Bhai, String aur Hash dono hi object models handle kar sakte hain, lekin dono ka memory layout alag hai:
+
+- **String Layer (Flat Key-Value):** Ek alag key par ek akeli string value save hoti hai. Agar hume isme object store karna hai, toh hume poore JSON ko stringify karna padta hai.
+- **Hash Layer (Nested Fields Database):** Ek main key ke andar multiple independent small keys (Fields) aur unki dedicated values store hoti hain.
+
+```text
+[ Redis STRING Layout ]
+Key: "username" ──► Value: "Amit"
+
+[ Redis HASH Layout ]
+Key: "user:101" ──► Fields:
+                    ├─► name: "Amit"
+                    ├─► role: "Developer"
+                    └─► city: "Delhi"
+```
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // ====== STRING APPROACH ======
+  await redis.set("username", "Amit");
+  console.log("String Return:", await redis.get("username"));
+
+  // ====== HASH APPROACH ======
+  await redis.hSet("user:101", { name: "Amit", role: "Developer", city: "Delhi" });
+
+  // Pura object fetch karne ke bajaye directly sirf ek property extract karein
+  const specificRole = await redis.hGet("user:101", "role");
+  console.log("Extracted Hash Field:", specificRole); // Output: Developer
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+```
+
+## 🔄 Real-World Production Architecture Choice (MERN Concept)
+
+MERN applications mein choice features ke design layout par depend karti hai:
+
+- **Choose String when:** Pura application payload (jaise complete catalog description API payload) ek bar save karke direct frontend par serve karna ho.
+- **Choose Hash when:** User dashboard ka status ya count track karna ho jisme har request par profile ke alag attributes (jaise settings, balance) dynamically read-write hote hon.
+
+## 📋 Direct Structural Comparison Table
+
+| Feature Matrix | Redis String | Redis Hash |
+|---|---|---|
+| Data Topology | One Key ──► One Single Value. | One Key ──► Multiple inner Field-Value pairs. |
+| Core Reading Command | GET | HGET (Single Field) / HGETALL (Complete Object) |
+| Core Writing Command | SET | HSET |
+| Partial Mutation | 🔴 Impossible. Poora string update karna hoga. | 🟢 Possible. Single attribute directly change ho sakta hai. |
+| Ideal Production Use | API JSON caching, simple tokens, basic INCR. | Object data caches, user profiles, status maps. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Strings link a single key to a binary-safe block of data, best suited for rigid values or overall JSON caching. Redis Hashes arrange internal tables under one single namespace, facilitating fast incremental reads and updates to specific key properties without handling the full object footprint."
+- **Hinglish Quick Memory:** String matlab single line lock entry. Hash matlab internal variables storage object. Agar poore object ko bina manipulate kiye direct store/read karna hai toh String use karo (JSON form mein). Par agar specific elements ko bina baaki data ko chede update karna hai, toh Hash run karo.
+
 ---
 
 *More answers will be added in question order, using this format.*
