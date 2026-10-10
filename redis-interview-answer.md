@@ -9608,6 +9608,89 @@ main().catch(console.error);
 - **English Pitch:** "In Node.js, I commonly use `node-redis`, the official Redis client, for caching and other Redis operations. I create a client, configure the connection URL, register an error handler, and connect before using Redis commands. I also consider `ioredis` when its API or supported deployment features better fit the project."
 - **Hinglish Quick Memory:** "Node.js mein Redis ke liye `node-redis` aur `ioredis` popular clients hain. Normal MERN caching ke liye main `node-redis` use kar sakta hoon. Cluster ya Sentinel jaise requirements aur project ke hisaab se client choose karta hoon."
 
+# 🚀 Question 105: How Do You Store JSON Data in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis can store JSON data by serializing a JavaScript object into a JSON string using `JSON.stringify()` and saving it with the Redis `SET` command. If the RedisJSON module is available, structured JSON can also be stored using the `JSON.SET` command.
+
+## 🗣️ Answer in Hinglish
+
+Node.js mein user ka data JavaScript object ke form mein ho sakta hai. Normal Redis string mein save karne ke liye use pehle JSON string mein convert karte hain.
+
+- `JSON.stringify()` — JavaScript object ko JSON string banata hai.
+- `SET` — JSON string ko Redis mein store karta hai.
+- Agar RedisJSON module available hai, toh object ko JSON document ke roop mein `JSON.SET` se bhi store kar sakte hain.
+
+**Example:** User ka `id`, `name` aur `email` Redis mein store karna hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+Node.js JavaScript Object
+          |
+          | JSON.stringify()
+          v
+      JSON String
+          |
+          | Redis SET
+          v
+       Redis Key
+       user:101
+~~~
+
+## 💻 Practical Code Example — Node.js + Redis
+
+Node.js `redis` package (node-redis) use karte hue:
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({
+    url: process.env.REDIS_URL || "redis://localhost:6379",
+  });
+
+  redis.on("error", (err) => console.error("Redis error:", err));
+
+  await redis.connect();
+
+  const user = {
+    id: 101,
+    name: "Amit",
+    email: "amit@example.com",
+  };
+
+  // Convert JavaScript object to JSON string
+  const jsonData = JSON.stringify(user);
+
+  // Store JSON string in Redis
+  await redis.set("user:101", jsonData);
+
+  console.log("User stored successfully");
+
+  await redis.close();
+}
+
+main().catch(console.error);
+~~~
+
+Yahan `user:101` Redis key hai aur uski value JSON string hai.
+
+## 📊 Important Points
+
+| Method | How it works |
+|---|---|
+| `JSON.stringify()` | Object ko JSON string mein convert karta hai |
+| `SET user:101 ...` | JSON string ko Redis mein store karta hai |
+| `JSON.SET` | RedisJSON module se structured JSON store karta hai |
+| `EX` option | Key ke liye expiration time set kar sakte hain |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I can store JSON in Redis by serializing a JavaScript object with `JSON.stringify()` and saving it with `SET`. If RedisJSON is available, I can use `JSON.SET` to store a structured JSON document."
+- **Hinglish Quick Memory:** "Pehle `JSON.stringify()` se object ko string banata hoon, phir Redis ke `SET` command se store karta hoon. RedisJSON module available ho toh `JSON.SET` use kar sakte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
