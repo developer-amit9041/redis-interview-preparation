@@ -13449,6 +13449,99 @@ redis-cli UNLINK activity:all_users
 - **English Pitch:** "The big key problem occurs when a Redis key contains a very large value or collection. It can increase memory usage, command latency, and replication or persistence overhead. I would detect large keys with `redis-cli --bigkeys`, inspect memory using `MEMORY USAGE`, process collections incrementally with scan commands, and consider splitting data or using `UNLINK` for large-key deletion."
 - **Hinglish Quick Memory:** "Big key ka matlab ek Redis key mein bahut zyada data hona. Isse memory use aur latency badh sakti hai. `--bigkeys` se identify karo, `MEMORY USAGE` se memory check karo, `HSCAN` jaise commands se batches mein read karo, aur large key delete karne ke liye `UNLINK` consider karo."
 
+# 🚀 Question 133: How Do You Find Large Redis Keys?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis provides several ways to identify large keys. The `redis-cli --bigkeys` option scans the database and reports keys that are large by the number of elements for each data type. To check a specific key's estimated memory consumption in bytes, use `MEMORY USAGE key`.
+
+For memory troubleshooting, `MEMORY USAGE` is useful because a key containing fewer but large values may consume more memory than a key containing many small values.
+
+## 🗣️ Answer in Hinglish
+
+Redis mein large keys find karne ke liye do cheezein samajhni chahiye:
+
+- **`--bigkeys`** — Har data type mein elements ke count ke hisaab se large keys identify karne mein help karta hai.
+- **`MEMORY USAGE`** — Kisi specific key ki estimated memory consumption bytes mein batata hai.
+
+Production Redis mein memory issue troubleshoot karte waqt `KEYS *` avoid karna chahiye, kyunki large keyspace mein yeh server ko block kar sakta hai. Iske bajaye `--bigkeys` ya `SCAN`-based approach use karo.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+          Redis Server
+               |
+               v
+       Scan available keys
+               |
+        +------+------+
+        |             |
+        v             v
+  redis-cli       MEMORY USAGE
+  --bigkeys       specific_key
+        |             |
+        v             v
+  Large collection  Memory estimate
+  candidates        in bytes
+~~~
+
+## 💻 Practical Redis CLI Examples
+
+### A. Find large keys by data-type size
+
+~~~bash
+redis-cli --bigkeys
+~~~
+
+Yeh database scan karta hai aur har supported data type ke liye largest keys report karta hai. Dhyan rahe, yeh **memory mein sabse zyada bytes consume karne wali key ki guaranteed ranking nahi** hai.
+
+### B. Check one key's memory usage
+
+~~~bash
+redis-cli MEMORY USAGE user:101
+~~~
+
+Redis us key ki estimated memory usage bytes mein return karega, ya key na milne par `nil` return kar sakta hai.
+
+### C. Memory-oriented key scan
+
+Agar aapke installed `redis-cli` version mein supported ho, toh:
+
+~~~bash
+redis-cli --memkeys
+~~~
+
+Yeh memory usage ke basis par large keys identify karne ke liye sampling-style scan karta hai. Availability aur options Redis CLI version par depend kar sakte hain.
+
+### D. Scan keys manually
+
+Agar custom checks karne hon, toh `SCAN` ke saath keys iterate kar sakte hain aur selected keys par `MEMORY USAGE` chala sakte hain. Large production database mein `KEYS *` se bachna chahiye.
+
+~~~bash
+redis-cli SCAN 0 COUNT 100
+redis-cli MEMORY USAGE user:101
+~~~
+
+`SCAN` paginated iteration deta hai; har call mein returned cursor ko next call mein use karna hota hai, jab tak cursor `0` na ho jaaye.
+
+## 📊 Important Points
+
+| Command / Tool | Purpose |
+|---|---|
+| `redis-cli --bigkeys` | Finds large collection candidates by element count |
+| `MEMORY USAGE key` | Estimates memory consumed by a specific key |
+| `redis-cli --memkeys` | Memory-oriented large-key scan, if supported by the CLI version |
+| `SCAN` | Iterates through keys incrementally |
+| `HSCAN` / `SSCAN` / `ZSCAN` | Iterates through Hash, Set, or Sorted Set contents in batches |
+| `UNLINK key` | Removes a key while freeing its value memory asynchronously where possible |
+
+**Interview tip:** A *big key* contains a large value or collection. A *hot key* receives a disproportionately high volume of requests. These are different problems, although a key can be both big and hot.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "To find large Redis keys, I use `redis-cli --bigkeys` to identify large collections and `MEMORY USAGE key` to estimate the memory consumed by a specific key. For production troubleshooting, I avoid `KEYS *`, use incremental scans, and consider splitting oversized data structures or using `UNLINK` for large-key deletion."
+- **Hinglish Quick Memory:** "Bhai, `--bigkeys` se large collections identify karte hain, aur `MEMORY USAGE` se specific key ki memory check karte hain. Production mein `KEYS *` avoid karo, `SCAN` use karo, aur zaroorat padne par large data ko smaller keys mein split karo."
+
 ---
 
 *More answers will be added in question order, using this format.*
