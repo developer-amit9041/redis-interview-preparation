@@ -12456,6 +12456,128 @@ LFU Product A ko higher frequency ki wajah se retain karne ki taraf lean kar sak
 - **English Pitch:** "LFU stands for Least Frequently Used. Redis offers approximate LFU eviction policies, such as `allkeys-lfu` and `volatile-lfu`, which prefer keys estimated to have lower access frequency when memory needs to be freed. Redis uses a decaying frequency counter, so LFU is an estimate rather than an exact count of all historical accesses."
 - **Hinglish Quick Memory:** "LFU ka matlab Least Frequently Used hai. Memory pressure par Redis LFU policy se kam frequently accessed keys ko evict karne ki koshish karta hai. `allkeys-lfu` sabhi keys consider karta hai, jabki `volatile-lfu` sirf TTL wali keys ko. LFU approximate frequency use karta hai, exact lifetime count nahi."
 
+# 🚀 Question 125: What Is the `noeviction` Policy in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+The **`noeviction` policy** is a Redis memory-management policy that prevents Redis from evicting keys when the configured `maxmemory` limit is reached. Instead of deleting existing keys to free memory, Redis returns errors for commands that need additional memory. Read-only commands can generally continue to work.
+
+It is useful when you want Redis to preserve existing keys rather than automatically evicting them, but your application must handle memory-related errors.
+
+## 🗣️ Answer in Hinglish
+
+Redis mein `noeviction` ka matlab hai: **memory limit full hone par Redis existing keys ko automatically delete nahi karega.**
+
+Maan lo Redis ki maximum memory limit 100 MB hai aur memory full ho chuki hai.
+
+- Redis existing keys ko eviction policy ke through delete nahi karega.
+- Agar koi command extra memory maangti hai, toh Redis error return kar sakta hai.
+- Read-only commands generally kaam karti reh sakti hain.
+- Application ko memory error handle karna aur zaroorat ke according memory free karna hoga.
+
+**Simple example:** Aap Redis mein important application data rakh rahe ho aur nahi chahte ki memory pressure mein Redis automatically keys delete kare. `noeviction` is behavior ko support karta hai, lekin writes fail ho sakti hain—isse application design mein handle karna zaroori hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+          Application
+               |
+               v
+           Redis Server
+               |
+               v
+        Is maxmemory reached?
+               |
+          +----+----+
+          |         |
+          No        Yes
+          |         |
+          v         v
+    Execute write  noeviction policy
+                    |
+                    v
+             Evict existing keys?
+                    |
+                    v
+                   No
+                    |
+                    v
+          Write needs more memory?
+                    |
+               +----+----+
+               |         |
+              Yes        No
+               |         |
+               v         v
+           Return error  Command may
+                         succeed
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Check the current eviction policy
+
+~~~bash
+redis-cli CONFIG GET maxmemory-policy
+~~~
+
+Example response:
+
+~~~text
+1) "maxmemory-policy"
+2) "noeviction"
+~~~
+
+### Step 2: Configure `noeviction`
+
+~~~bash
+redis-cli CONFIG SET maxmemory-policy noeviction
+~~~
+
+Response:
+
+~~~text
+OK
+~~~
+
+This changes the policy at runtime. For persistent configuration, configure `maxmemory-policy noeviction` in the Redis configuration file or the deployment's supported configuration mechanism.
+
+### Step 3: Check the memory limit and usage
+
+~~~bash
+redis-cli CONFIG GET maxmemory
+redis-cli INFO memory
+~~~
+
+`maxmemory` shows the configured limit, while `INFO memory` provides memory usage information.
+
+**Important:** Memory full hone par har command fail nahi hoti. Failure depends on whether the operation needs additional memory; the `noeviction` policy does not automatically delete keys.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Purpose | Memory limit reach hone par automatic key eviction prevent karna |
+| Keys automatically delete hoti hain? | Nahi, `noeviction` policy ke through nahi |
+| Writes that need more memory | Error return kar sakti hain |
+| Read-only commands | Generally continue kar sakti hain |
+| Key expiration | TTL ke through normal expiration alag mechanism hai |
+| Application responsibility | Memory errors handle karna aur memory planning karna |
+
+### `noeviction` vs `allkeys-lru`
+
+| Feature | `noeviction` | `allkeys-lru` |
+|---|---|---|
+| Memory limit reached | Keys evict nahi karta | Eviction candidates mein se keys evict kar sakta hai |
+| New writes needing more memory | Error aa sakta hai | Eviction ke baad write succeed kar sakti hai, if enough memory is freed |
+| Existing cache keys | Eviction policy se preserve hoti hain | Any key eviction candidate ho sakti hai |
+| Best fit | Data ko automatically evict nahi karna | Cache workloads jahan less-recently-used keys evict karna acceptable ho |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`noeviction` is a Redis eviction policy that does not remove keys when `maxmemory` is reached. Commands that require additional memory can return errors instead, so applications need to handle those errors and manage memory capacity."
+- **Hinglish Quick Memory:** "`noeviction` mein memory full hone par Redis keys delete nahi karta. Extra memory maangne wali write commands fail ho sakti hain. Isliye application ko memory errors handle karne hote hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
