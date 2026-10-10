@@ -6067,6 +6067,98 @@ Agar koi subscriber channel ko listen nahi kar raha, toh `PUBLISH` ka return val
 - **English Pitch:** "`PUBLISH` sends a message to a designated Redis channel, while `SUBSCRIBE` registers a client to receive messages from that channel. Redis delivers messages to currently subscribed clients without retaining them for future delivery."
 - **Hinglish Quick Memory:** `PUBLISH` se channel par message bhejte hain aur `SUBSCRIBE` se messages receive karne ke liye listener register karte hain. Return value 0 ho toh publish ke waqt koi subscriber message receive nahi kar raha tha.
 
+# 🚀 Question 72: What Is a Redis Channel?
+
+## 📝 Answer (English — Interview Definition)
+
+A Redis Pub/Sub channel is a named communication destination used to route messages from publishers to subscribers.
+
+A publisher sends a message to a channel using the `PUBLISH` command, and Redis broadcasts that message to all currently subscribed clients using `SUBSCRIBE`.
+
+**Example:** An e-commerce application can use an `order_events` channel to broadcast new order notifications to the notification service and admin dashboard.
+
+## 🗣️ Answer in Hinglish
+
+Redis channel ek **named message destination** hota hai jahan publisher message send karta hai aur us channel ko subscribe karne wale active subscribers message receive karte hain.
+
+Maan lo hamari MERN application mein user order place karta hai:
+
+1. Node.js Order Service `order_events` channel par message publish karegi.
+2. Redis us channel ke active subscribers ko message broadcast karega.
+3. Notification Service aur Admin Dashboard message receive kar sakte hain, agar woh us waqt subscribed hon.
+
+**Important:** Redis Pub/Sub channel khud messages ko store nahi karta. Agar subscriber publish hone ke waqt offline hai, toh woh message miss kar sakta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        [ Publisher — Node.js ]
+                  |
+                  | PUBLISH order_events
+                  v
+          [ Redis Pub/Sub Channel ]
+               order_events
+                  |
+                  v
+          +-------+--------+
+          |                |
+          v                v
+ [ Notification Service ] [ Admin Dashboard ]
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Start the subscriber
+
+Terminal 1 mein Redis CLI open karke run karo:
+
+~~~bash
+redis-cli
+SUBSCRIBE order_events
+~~~
+
+Subscriber ab `order_events` channel par messages ka wait karega.
+
+### Step 2: Publish a message
+
+Terminal 2 mein run karo:
+
+~~~bash
+redis-cli PUBLISH order_events "New order placed"
+~~~
+
+Publisher ka response kuch is tarah ho sakta hai:
+
+~~~text
+(integer) 1
+~~~
+
+Yahan `1` ka matlab hai ki publish ke waqt ek subscriber ko message deliver hua.
+
+Subscriber ke terminal par output:
+
+~~~text
+message
+order_events
+New order placed
+~~~
+
+## ⚙️ Important Characteristics
+
+| Feature | Explanation |
+|---|---|
+| Channel name | Example: `order_events`, `notifications` |
+| `PUBLISH` | Channel par message send karta hai. |
+| `SUBSCRIBE` | Channel ke messages receive karne ke liye listen karta hai. |
+| Multiple subscribers | Ek message multiple active subscribers ko mil sakta hai. |
+| Message persistence | Messages future delivery ke liye store nahi hote. |
+| Offline subscriber | Publish ke waqt offline hone par message miss ho sakta hai. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Redis channel is a named destination used in Pub/Sub communication. Publishers send messages to channels, and Redis broadcasts them to currently subscribed clients. Channels enable real-time, loosely coupled communication between application services."
+- **Hinglish Quick Memory:** "Redis channel ek naam wala communication route hai. Publisher `PUBLISH` se message bhejta hai aur subscriber `SUBSCRIBE` se message receive karta hai. Ek channel par multiple subscribers ho sakte hain, lekin Redis Pub/Sub messages ko persist nahi karta."
+
 ---
 
 *More answers will be added in question order, using this format.*
