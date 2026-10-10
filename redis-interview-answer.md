@@ -9476,6 +9476,138 @@ Yeh OTP ko 5 minutes ki expiry ke saath store karta hai. Real authentication sys
 - **English Pitch:** "I connect Redis with Node.js using the `redis` npm package. I create a client using `createClient()`, configure the Redis URL, register an error listener, and call `connect()` before serving requests. Then I use methods such as `set()` and `get()` for caching and other fast data operations."
 - **Hinglish Quick Memory:** "Node.js mein Redis connect karne ke liye `redis` package install karte hain, `createClient()` se client banate hain aur `connect()` call karte hain. Connection ke baad `set()` se data store aur `get()` se read kar sakte hain. Express app mein client ko ek baar startup par connect karna chahiye."
 
+# 🚀 Question 104: Which Redis Client Do You Use in Node.js?
+
+## 📝 Answer (English — Interview Definition)
+
+In Node.js, I commonly use **`node-redis` (`redis`)**, the official Redis client for JavaScript, to connect to Redis and perform operations such as `GET`, `SET`, `INCR`, and transactions. Another popular option is **`ioredis`**. The choice depends on the application's requirements and the Redis deployment architecture.
+
+Redis's current documentation recommends `node-redis` for new JavaScript projects, while also documenting and supporting `ioredis`.
+
+## 🗣️ Answer in Hinglish
+
+Node.js application mein Redis se connect karne ke liye hum Redis client library use karte hain.
+
+Do popular options hain:
+
+- **`node-redis` (`redis`):** Redis ka official JavaScript client. Normal caching, strings, hashes, transactions aur Redis ke other commands ke liye use kar sakte hain.
+- **`ioredis`:** Ek popular alternative, jo Redis Cluster aur Sentinel jaise deployments ko support karta hai.
+
+MERN project mein normal Redis caching ke liye main `node-redis` choose kar sakta hoon. Agar project ki existing architecture ya requirements `ioredis` ko suit karti hain, toh `ioredis` bhi use kar sakte hain.
+
+**Interview tip:** Sirf library ka naam mat batana—ye bhi explain karna ki client Redis server se connection establish karta hai aur application ko Redis commands execute karne deta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        React Frontend
+              |
+              v
+        Node.js / Express
+              |
+              v
+       Redis Client Library
+       /                 \
+ node-redis             ioredis
+       \                 /
+              v
+          Redis Server
+              |
+              v
+       GET / SET / INCR
+~~~
+
+## 💻 Practical Code Example — Node.js + Redis
+
+### Option A: Using node-redis
+
+Install the package:
+
+~~~bash
+npm install redis
+~~~
+
+Create a client and connect:
+
+~~~javascript
+const { createClient } = require("redis");
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redisClient.on("error", (err) => {
+  console.error("Redis Client Error:", err);
+});
+
+async function main() {
+  await redisClient.connect();
+
+  await redisClient.set("user:101:name", "Amit", {
+    EX: 60,
+  });
+
+  const name = await redisClient.get("user:101:name");
+  console.log(name); // Amit
+
+  await redisClient.quit();
+}
+
+main().catch(console.error);
+~~~
+
+### Option B: Using ioredis
+
+Install the package:
+
+~~~bash
+npm install ioredis
+~~~
+
+Example:
+
+~~~javascript
+const Redis = require("ioredis");
+
+const redis = new Redis(
+  process.env.REDIS_URL || "redis://localhost:6379"
+);
+
+redis.on("error", (err) => {
+  console.error("Redis Client Error:", err);
+});
+
+async function main() {
+  await redis.set("user:101:name", "Amit", "EX", 60);
+
+  const name = await redis.get("user:101:name");
+  console.log(name); // Amit
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+**Code ka main difference:** Dono clients Redis server se connect karke commands execute karte hain. Inki APIs thodi different ho sakti hain—for example, expiry options pass karne ka syntax alag hai. Apne project mein jis client ko choose karo, uski API consistently use karo.
+
+## 📊 Comparison Table
+
+| Feature | `node-redis` (`redis`) | `ioredis` |
+|---|---|---|
+| Type | Official Redis JavaScript client | Popular alternative Redis client |
+| Basic commands | Supported | Supported |
+| Normal caching | Excellent fit | Excellent fit |
+| Redis Cluster | Supported | Supported |
+| Redis Sentinel | Supported | Supported |
+| API style | Explicit `connect()`; object options for some commands | Connects by default when instantiated; command-style argument patterns are common |
+| Recommended use | Good default for new Node.js projects | Useful for projects whose needs and existing code suit its API/features |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "In Node.js, I commonly use `node-redis`, the official Redis client, for caching and other Redis operations. I create a client, configure the connection URL, register an error handler, and connect before using Redis commands. I also consider `ioredis` when its API or supported deployment features better fit the project."
+- **Hinglish Quick Memory:** "Node.js mein Redis ke liye `node-redis` aur `ioredis` popular clients hain. Normal MERN caching ke liye main `node-redis` use kar sakta hoon. Cluster ya Sentinel jaise requirements aur project ke hisaab se client choose karta hoon."
+
 ---
 
 *More answers will be added in question order, using this format.*
