@@ -9691,6 +9691,106 @@ Yahan `user:101` Redis key hai aur uski value JSON string hai.
 - **English Pitch:** "I can store JSON in Redis by serializing a JavaScript object with `JSON.stringify()` and saving it with `SET`. If RedisJSON is available, I can use `JSON.SET` to store a structured JSON document."
 - **Hinglish Quick Memory:** "Pehle `JSON.stringify()` se object ko string banata hoon, phir Redis ke `SET` command se store karta hoon. RedisJSON module available ho toh `JSON.SET` use kar sakte hain."
 
+# 🚀 Question 106: How Do You Retrieve JSON Data from Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+JSON data stored as a Redis string can be retrieved with the `GET` command and converted back into a JavaScript object using `JSON.parse()`. When using the RedisJSON module, structured JSON can be retrieved with `JSON.GET`.
+
+## 🗣️ Answer in Hinglish
+
+Agar JSON data normal Redis `SET` command se store kiya hai, toh use retrieve karne ke liye `GET` use karenge. Redis se value string ke form mein milegi, isliye JavaScript object banane ke liye `JSON.parse()` karenge.
+
+- `GET` — Redis se stored string laata hai.
+- `JSON.parse()` — JSON string ko JavaScript object banata hai.
+- Agar RedisJSON module use ho raha hai, toh structured JSON retrieve karne ke liye `JSON.GET` use kar sakte hain.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+         Redis Key
+         user:101
+             |
+             | GET
+             v
+        JSON String
+             |
+             | JSON.parse()
+             v
+ JavaScript Object in Node.js
+~~~
+
+## 💻 Practical Code Example — Node.js + Redis
+
+Is example mein Redis mein store kiye gaye JSON user data ko retrieve karenge:
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({
+    url: process.env.REDIS_URL || "redis://localhost:6379",
+  });
+
+  redis.on("error", (err) => console.error("Redis error:", err));
+
+  await redis.connect();
+
+  const data = await redis.get("user:101");
+
+  if (data === null) {
+    console.log("User not found");
+  } else {
+    try {
+      const user = JSON.parse(data);
+      console.log(user);
+      console.log(user.name);
+    } catch (err) {
+      console.error("Stored value is not valid JSON:", err.message);
+    }
+  }
+
+  await redis.close();
+}
+
+main().catch(console.error);
+~~~
+
+Agar Redis mein yeh JSON string stored hai:
+
+~~~json
+{"id":101,"name":"Amit","email":"amit@example.com"}
+~~~
+
+Toh `JSON.parse(data)` ke baad Node.js mein object milega aur `user.name` ka output hoga:
+
+~~~text
+Amit
+~~~
+
+## 📊 Important Points
+
+| Method | Purpose |
+|---|---|
+| `GET user:101` | Normal Redis string se stored JSON retrieve karta hai |
+| `JSON.parse()` | JSON string ko JavaScript object mein convert karta hai |
+| `JSON.GET user:101` | RedisJSON module se JSON document retrieve karta hai |
+| Missing key | `GET` se `null` return hota hai |
+| Invalid JSON | `JSON.parse()` error throw karta hai, isliye error handling useful hai |
+
+### Store vs Retrieve
+
+| Operation | Normal Redis string | RedisJSON module |
+|---|---|---|
+| Store | `SET user:101 ...` | `JSON.SET user:101 $ ...` |
+| Retrieve | `GET user:101` + `JSON.parse()` | `JSON.GET user:101` |
+| Data handling | Application JSON ko serialize/parse karti hai | JSON document ko RedisJSON commands se access kar sakte hain |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "To retrieve JSON stored as a Redis string, I use `GET` and then `JSON.parse()` to convert the returned string into a JavaScript object. With the RedisJSON module, I can retrieve a JSON document directly using `JSON.GET`."
+- **Hinglish Quick Memory:** "Redis se JSON string lane ke liye `GET` use karta hoon aur object banane ke liye `JSON.parse()` karta hoon. RedisJSON module use ho raha ho toh `JSON.GET` se document retrieve kar sakte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
