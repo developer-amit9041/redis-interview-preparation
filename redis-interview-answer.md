@@ -4318,6 +4318,75 @@ TTL jitter spreads expirations across a time window. It reduces synchronized exp
 - **English Pitch:** "A Cache Avalanche happens when many keys expire or become unavailable around the same time, sending a surge of cache misses to the database. TTL jitter spreads expiry times, while request coalescing, cache pre-warming, and circuit breakers help protect the database."
 - **Hinglish Quick Memory:** Jab bahut saari Redis keys ek hi time par expire hoti hain, toh requests ek saath MongoDB par pahunch sakti hain aur database overload ho sakta hai. TTL jitter har key ka expiry time thoda random karke is risk ko kam karta hai.
 
+# 🚀 Question 50: What Is Cache Penetration?
+
+## 📝 Answer (English — Interview Definition)
+
+Cache Penetration occurs when an application receives repeated requests for keys whose data exists neither in the cache nor in the underlying database. Each request can miss the cache and fall through to the database, even though the requested record does not exist.
+
+This can happen because of malicious scanning, invalid identifiers, or faulty client retry loops. Common defenses include input validation, rate limiting, negative caching, and—when appropriate—a Bloom filter to reject identifiers that definitely do not exist.
+
+## 🗣️ Answer in Hinglish
+
+Cache Penetration tab hota hai jab client baar-baar aise data ya ID ki request karta hai jo na Redis cache mein hai aur na MongoDB database mein exist karti hai.
+
+Maan lijiye kisi bot ne `/products/999999` jaise invalid product ID par continuously requests bhejni shuru kar di:
+
+1. Backend Redis check karta hai, lekin key nahi milti.
+2. Backend MongoDB query karta hai, par record exist nahi karta.
+3. Agar missing result ko cache ya otherwise protect nahi kiya, toh repeated requests baar-baar database tak pahunch sakti hain.
+
+Isse bachne ke liye **negative caching** mein missing result ko short TTL ke liye cache kiya jata hai. Input validation aur rate limiting bhi helpful defenses hain.
+
+## 💻 Practical Code Example (Negative Caching)
+
+~~~javascript
+async function getProductSecurely(productId) {
+  const cacheKey = `product:${productId}`;
+  const notFoundMarker = "__NON_EXISTENT_RECORD__";
+
+  // 1. Check Redis
+  const cachedContent = await redis.get(cacheKey);
+
+  if (cachedContent !== null) {
+    if (cachedContent === notFoundMarker) {
+      return null; // Known missing record: skip another DB query
+    }
+
+    return JSON.parse(cachedContent);
+  }
+
+  // 2. Cache miss: query MongoDB
+  const productDoc = await Product.findById(productId).lean();
+
+  // 3. Negative-cache missing records briefly
+  if (!productDoc) {
+    await redis.set(cacheKey, notFoundMarker, { EX: 60 });
+    return null;
+  }
+
+  // 4. Cache valid product data for five minutes
+  await redis.set(cacheKey, JSON.stringify(productDoc), { EX: 300 });
+  return productDoc;
+}
+~~~
+
+## 📋 Cache Penetration Defense Mechanisms
+
+| Defense | Operational Concept | Benefit |
+|---|---|---|
+| Negative caching | Cache missing/null results briefly with a sentinel value. | Repeat requests for the same missing key avoid repeated DB lookups during the TTL. |
+| Bloom filter | Check whether a key is definitely absent before querying the database. | Can reject many impossible lookups efficiently; false positives are possible. |
+| Input validation | Validate IDs and request parameters before reading Redis or MongoDB. | Rejects malformed requests early. |
+| IP / user rate limiting | Limit repeated requests using counters or middleware. | Helps throttle scanning and abusive traffic. |
+
+**Production note:** Keep negative-cache TTLs relatively short and invalidate the negative entry when a record is created, otherwise a newly created record may temporarily appear missing until the marker expires.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Cache Penetration occurs when requests for nonexistent records miss both the cache and database, causing repeated database lookups. Input validation, rate limiting, Bloom filters, and short-lived negative caching can reduce this load."
+- **Hinglish Quick Memory:** Jab invalid ID Redis aur MongoDB dono mein nahi milti, toh har request database tak ja sakti hai. Negative caching missing result ko thodi der ke liye Redis mein save karta hai, taaki same invalid ID ki repeated request par DB query repeat na ho.
+
 ---
 
 *More answers will be added in question order, using this format.*
