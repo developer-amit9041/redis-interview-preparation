@@ -9078,6 +9078,111 @@ Agar primary fail ho jata hai aur Sentinel failover complete karta hai, toh comm
 - **English Pitch:** "Automatic failover promotes a replica to become the new primary when the current Redis primary fails. Redis Sentinel and Redis Cluster can coordinate this process. It improves availability, but it may involve temporary interruption and possible loss of recent writes due to asynchronous replication."
 - **Hinglish Quick Memory:** "Automatic failover mein primary fail hone par replica ko naya primary bana diya jata hai. Sentinel ya Redis Cluster is process ko coordinate kar sakte hain. Isse availability improve hoti hai, lekin thoda downtime aur recent writes ka loss possible hai."
 
+# 🚀 Question 101: How Does Redis Achieve High Availability?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis achieves high availability through **replication, automatic failover, and appropriate deployment architecture**. Redis Sentinel monitors primary and replica instances and can promote a replica when the primary fails. Redis Cluster distributes data across multiple primary nodes and uses replicas to support failover.
+
+The goal is to minimize downtime and keep the service available when a Redis node fails.
+
+## 🗣️ Answer in Hinglish
+
+High Availability (HA) ka matlab hai ki agar Redis ka koi server fail ho jaaye, toh application kaam karti rahe aur downtime minimum ho.
+
+Redis mein HA achieve karne ke liye mainly ye concepts use hote hain:
+
+1. **Replication:** Primary Redis node ka data replicas par copy hota rehta hai.
+2. **Redis Sentinel:** Primary node ko monitor karta hai. Agar primary fail ho jaaye aur Sentinel failure confirm kar de, toh eligible replica ko promote karke naya primary banaya ja sakta hai.
+3. **Redis Cluster:** Data ko multiple primary nodes par shard karta hai. Replicas failover mein help karte hain, aur cluster data distribution aur availability dono provide karne ke liye design kiya gaya hai.
+4. **Application reconnect and retry:** Node.js application ko connection failure handle karna chahiye aur reconnect/retry logic implement karna chahiye.
+
+**Important:** Redis replication generally asynchronous hoti hai. Isliye failover ke waqt kuch recent writes lose ho sakti hain. HA ka matlab zero data loss ki guarantee nahi hai.
+
+## 🏗️ Architecture Diagram
+
+### Redis Sentinel — Primary/Replica Failover
+
+~~~text
+       Node.js Application
+                |
+                v
+          Redis Primary
+                |
+          Replication
+                |
+         +------+------+
+         |             |
+         v             v
+      Replica A     Replica B
+
+Sentinel monitors the nodes.
+If the primary fails, an eligible replica
+may be promoted to primary.
+~~~
+
+### Redis Cluster — Sharding + Replication
+
+~~~text
+         Redis Cluster
+               |
+       +-------+-------+
+       |               |
+       v               v
+    Primary A       Primary B
+       |               |
+       v               v
+    Replica A       Replica B
+
+Data is partitioned across primaries;
+replicas can support failover.
+~~~
+
+## 💻 Practical Example
+
+### A. Check replication status
+
+~~~bash
+redis-cli INFO replication
+~~~
+
+Primary node par output mein typically `role:master` aur replica nodes ki information dikhegi. Replica node par Redis commonly `role:slave` terminology return karta hai.
+
+### B. Configure a replica
+
+Replica instance par example command:
+
+~~~bash
+redis-cli REPLICAOF <primary-host> 6379
+~~~
+
+`<primary-host>` ko primary server ke hostname ya IP se replace karo. Isse replica primary se replication start karne ki koshish karega.
+
+### C. Check Sentinel
+
+Sentinel-enabled deployment mein:
+
+~~~bash
+redis-cli -p 26379 SENTINEL MASTER mymaster
+~~~
+
+Yeh `mymaster` naam ke monitored primary ki information return karta hai. Sentinel configuration aur authentication deployment ke according set honi chahiye.
+
+## 📊 Important Points
+
+| Component | Role in High Availability |
+|---|---|
+| Replication | Primary data ki replica copies maintain karta hai |
+| Sentinel | Monitoring, failure detection aur automatic failover |
+| Redis Cluster | Data sharding, replicas aur cluster-managed failover |
+| Persistence | Restart/recovery mein help karti hai; apne aap HA nahi hai |
+| Application retry | Temporary connection failures se recover karne mein help karta hai |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis achieves high availability through replication and failover. Sentinel monitors primary and replica instances and can promote a replica if the primary fails. Redis Cluster combines sharding with replicas for distributed scaling and failover. Applications also need reconnection and retry handling. Since replication is generally asynchronous, failover can result in some recent writes being lost."
+- **Hinglish Quick Memory:** "Redis HA ke liye replication, Sentinel ya Redis Cluster use karta hai. Primary fail hone par replica promote ho sakta hai. Application ko retry aur reconnect handle karna chahiye. Lekin asynchronous replication ki wajah se recent writes lose hone ka risk rehta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
