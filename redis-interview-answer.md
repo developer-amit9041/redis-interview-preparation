@@ -5387,6 +5387,79 @@ Command typically `OK` return karta hai jab synchronous save complete ho jata ha
 - **English Pitch:** "`SAVE` synchronously writes an RDB snapshot and blocks Redis from serving other commands until the save finishes. It can cause substantial latency on busy or large instances, so `BGSAVE` is usually preferred for background snapshots."
 - **Hinglish Quick Memory:** `SAVE` data ko foreground mein disk par snapshot karta hai aur saving ke dauran Redis commands block ho sakti hain. Isi liye production mein normal background snapshot ke liye `BGSAVE` zyada suitable hota hai.
 
+# 🚀 Question 66: What Is the Difference Between SAVE and BGSAVE?
+
+## 📝 Answer (English — Interview Definition)
+
+Both `SAVE` and `BGSAVE` create an RDB snapshot, but they differ in how the snapshot is produced.
+
+- **`SAVE`** performs the snapshot synchronously and blocks Redis from serving other commands until the operation finishes.
+- **`BGSAVE`** starts a background save using a child process. Redis can generally continue processing client commands while the child writes the snapshot.
+
+`BGSAVE` is usually preferred for snapshots on busy production instances because it avoids the prolonged blocking of `SAVE`. However, it is not zero-impact: the fork can briefly pause the process, and Copy-on-Write memory, CPU, and disk I/O can affect performance.
+
+## 🗣️ Answer in Hinglish
+
+Bhai, dono commands ka kaam Redis dataset ka RDB snapshot disk par save karna hai, lekin execution method alag hai:
+
+- **SAVE (Blocking):** Redis snapshot synchronously banata hai. Save operation ke dauran main command-processing loop block ho sakta hai, isliye client requests delay hoti hain.
+- **BGSAVE (Background):** Redis child process fork karta hai. Child process snapshot file write karta hai aur main process generally client requests serve karta rehta hai.
+
+~~~text
+[ SAVE ]
+   |
+   v
+[ Main Redis Process Writes Snapshot ]
+   |
+   v
+[ Other Commands Wait Until Save Finishes ]
+
+
+[ BGSAVE ]
+   |
+   v
+[ Redis Forks Child Process ]
+   |                         |
+   v                         v
+[ Child Writes Snapshot ]  [ Main Process Continues
+                              Serving Commands ]
+~~~
+
+## 💻 Practical Code Example & CLI Verification
+
+`SAVE` aur `BGSAVE` terminal se run hote hain:
+
+~~~bash
+# Synchronous save: blocks Redis command processing during the save
+redis-cli SAVE
+
+# Background save: starts snapshot generation in a child process
+redis-cli BGSAVE
+
+# Inspect persistence status
+redis-cli INFO persistence
+~~~
+
+Useful monitoring fields:
+
+- `rdb_bgsave_in_progress`: `1` means a background save is running; `0` means it is not currently running.
+- `rdb_last_bgsave_status`: commonly `ok` for a successful last save or `err` if it failed.
+
+## 📊 Deep Structural Comparison Matrix
+
+| Evaluation Metric | SAVE | BGSAVE |
+|---|---|---|
+| Execution model | Synchronous / foreground. | Background child process. |
+| Main command-processing loop | Blocks during the save. | Generally continues after the fork, apart from a possible brief pause. |
+| Client impact | Requests can queue up or experience high latency. | Usually less blocking, but not zero impact. |
+| Resource overhead | No background child process is needed for the save. | Forking, Copy-on-Write memory, CPU, and disk I/O overhead. |
+| Production suitability | Generally avoid on busy instances. | Usually preferred for background snapshots. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`SAVE` writes an RDB snapshot synchronously and blocks Redis command processing until it completes. `BGSAVE` performs the snapshot in a background child process, allowing Redis to generally continue serving requests. `BGSAVE` can still cause fork, memory, CPU, and disk I/O overhead."
+- **Hinglish Quick Memory:** `SAVE` snapshot ke dauran Redis requests block kar sakta hai. `BGSAVE` child process se background snapshot banata hai, isliye main process generally requests handle karta rehta hai. Lekin large dataset par fork aur memory overhead phir bhi ho sakta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
