@@ -13897,6 +13897,120 @@ Agar stock requested quantity se kam hai, toh script error return karegi aur dec
 - **English Pitch:** "Lua scripting lets us execute logic directly inside Redis using commands such as `EVAL`. It can combine multiple Redis operations into one server-side execution, reduce network round trips, and prevent other clients' commands from interleaving while the script runs. Scripts should remain short because they block command processing while executing."
 - **Hinglish Quick Memory:** "Lua scripting mein hum Redis server ke andar script execute karte hain. `EVAL` script chalata hai, `KEYS` key names deta hai aur `ARGV` extra values. Isse stock check aur decrement jaise steps ek atomic server-side execution mein ho sakte hain. Script short rakhna zaroori hai."
 
+# 🚀 Question 137: Why Use Lua Scripts?
+
+## 📝 Answer (English — Interview Definition)
+
+**Lua scripts in Redis are used to execute multiple Redis operations and business logic on the Redis server as one atomic execution.** They reduce network round trips, support conditional logic, and help prevent race conditions when multiple clients access or update the same data.
+
+Redis executes a script without interleaving commands from other clients during its execution. Scripts should be short because a running script blocks Redis from processing other commands.
+
+## 🗣️ Answer in Hinglish
+
+Redis mein Lua scripts ka use tab karte hain jab hume **multiple Redis operations ko ek saath, conditional logic ke saath execute karna ho**.
+
+Iske main benefits hain:
+
+- **Atomic execution:** Script run hote waqt doosre clients ke commands uske beech mein execute nahi hote.
+- **Fewer network round trips:** Har Redis command ke liye application se alag request bhejne ki zaroorat kam hoti hai.
+- **Conditional logic:** Ek hi script mein `if/else`, validation aur multiple Redis commands likh sakte hain.
+- **Race conditions se bachav:** Check aur update jaise related steps ko ek server-side script mein execute kar sakte hain.
+
+**Example:** E-commerce application mein product ka stock `5` hai. Hume check karna hai ki stock available hai ya nahi. Agar available hai, toh stock ko `1` se decrease karna hai. Lua script check aur decrement ko ek atomic execution mein kar sakti hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        Node.js Application
+                |
+                | Send one Lua script
+                v
+           Redis Server
+                |
+                v
+       Check stock availability
+                |
+           +----+----+
+           |         |
+       Stock > 0   Stock = 0
+           |         |
+           v         v
+       Decrement   Reject order
+           |
+           v
+      Return result
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Set the initial stock
+
+~~~bash
+SET product:101:stock 5
+~~~
+
+### Step 2: Run a Lua script
+
+~~~bash
+EVAL "local stock = tonumber(redis.call('GET', KEYS[1]) or '0'); if stock > 0 then redis.call('DECR', KEYS[1]); return 1 else return 0 end" 1 product:101:stock
+~~~
+
+**Output:**
+
+~~~text
+(integer) 1
+~~~
+
+`1` ka matlab stock available tha aur decrement ho gaya.
+
+### Step 3: Check the remaining stock
+
+~~~bash
+GET product:101:stock
+~~~
+
+Output:
+
+~~~text
+"4"
+~~~
+
+Agar stock `0` hota, toh script `0` return karti aur stock decrement nahi hota.
+
+### Code ko samjho
+
+| Lua expression | Meaning |
+|---|---|
+| `EVAL` | Redis par Lua script execute karta hai |
+| `KEYS[1]` | Script ko pass ki gayi pehli Redis key |
+| `redis.call('GET', ...)` | Redis se current stock read karta hai |
+| `if stock > 0` | Check karta hai ki stock available hai |
+| `redis.call('DECR', ...)` | Stock ko ek se decrease karta hai |
+| `return 1` / `return 0` | Application ko result return karta hai |
+
+**Important:** Lua script ke andar multiple Redis commands hon, toh Redis unhe doosre clients ke commands ke saath interleave nahi karta. Lekin runtime error aane par script ke pehle se ho chuke writes automatically roll back nahi hote.
+
+## 📊 Important Lua Script Concepts
+
+| Concept | Explanation |
+|---|---|
+| `EVAL` | Lua script ko execute karta hai |
+| `EVALSHA` | Script ke SHA hash se loaded script execute karta hai |
+| `KEYS` | Script ko pass ki gayi Redis keys |
+| `ARGV` | Script ko pass kiye gaye additional arguments |
+| Atomic execution | Script ke dauran doosre clients ke commands interleave nahi hote |
+| Performance | Multiple network round trips reduce ho sakte hain |
+| Limitation | Long-running scripts Redis ko doosre commands process karne se block kar sakti hain |
+
+### Node.js Use Case
+
+MERN application mein Lua script ka use inventory decrement, conditional counter update, ya kisi Redis-based check-and-update workflow mein ho sakta hai. Script ko short aur bounded rakho, aur Redis keys ko correct tarike se pass karo.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "We use Lua scripts in Redis to execute multiple operations and conditional business logic atomically on the server. They reduce network round trips and help prevent race conditions. However, scripts should be short because they block Redis command processing while running, and runtime errors do not automatically roll back previous writes."
+- **Hinglish Quick Memory:** "Lua scripts Redis mein multiple commands aur conditions ko ek atomic server-side execution mein chalane ke liye use hoti hain. Isse network round trips kam hote hain aur race conditions avoid karne mein help milti hai. Lekin scripts short rakhni chahiye kyunki execution ke waqt Redis doosre commands process nahi karta."
+
 ---
 
 *More answers will be added in question order, using this format.*
