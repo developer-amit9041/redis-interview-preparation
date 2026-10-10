@@ -5345,6 +5345,48 @@ Redis version aur environment ke hisaab se output fields verify karein.
 - **English Pitch:** "`BGSAVE` starts an RDB snapshot in a background child process so Redis can continue serving commands. It avoids the prolonged blocking behavior of `SAVE`, but forking and Copy-on-Write can still add CPU, memory, and latency overhead."
 - **Hinglish Quick Memory:** `BGSAVE` background mein RDB snapshot banata hai. Child process disk par file write karta hai aur main Redis commands handle karta rehta hai. Lekin large dataset par fork aur memory overhead ki wajah se performance impact phir bhi ho sakta hai.
 
+# 🚀 Question 65: What Is SAVE?
+
+## 📝 Answer (English — Interview Definition)
+
+`SAVE` is a Redis command that synchronously creates an RDB snapshot on disk. Unlike `BGSAVE`, it performs the snapshot operation in the foreground and blocks Redis from serving other commands for the duration of the save.
+
+Because this pause can delay client requests and increase latency—especially with large datasets—`SAVE` is generally avoided on busy production instances. `BGSAVE` is usually preferred when a background snapshot is appropriate.
+
+## 🗣️ Answer in Hinglish
+
+Redis ka `SAVE` command current dataset ka RDB snapshot synchronously disk par save karta hai.
+
+1. Redis save operation ko foreground mein execute karta hai.
+2. Snapshot save hone tak Redis ka main command processing block hota hai.
+3. Is duration mein clients ki requests delay ho sakti hain, aur large dataset par latency impact zyada ho sakta hai.
+
+Isliye busy production Redis instance par generally `SAVE` avoid karte hain aur background snapshot ke liye `BGSAVE` prefer karte hain.
+
+## 💻 Practical Code Example & Execution Risk
+
+Terminal command:
+
+~~~bash
+redis-cli SAVE
+~~~
+
+Command typically `OK` return karta hai jab synchronous save complete ho jata hai, lekin is dauran Redis client commands serve nahi kar pata. Is command ko busy production instance par casually run nahi karna chahiye.
+
+## 📊 Core Comparison: SAVE vs BGSAVE
+
+| Evaluation Metric | SAVE | BGSAVE |
+|---|---|---|
+| Execution model | Synchronous, blocking. | Background child process performs the snapshot. |
+| Main command processing | Blocked during the save. | Generally continues after fork, aside from possible brief fork pause. |
+| Request impact | Can cause significant latency while saving. | Usually lower blocking impact, but still uses CPU, memory, and disk I/O. |
+| Typical production choice | Generally avoided on busy instances. | Usually preferred for background snapshots. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`SAVE` synchronously writes an RDB snapshot and blocks Redis from serving other commands until the save finishes. It can cause substantial latency on busy or large instances, so `BGSAVE` is usually preferred for background snapshots."
+- **Hinglish Quick Memory:** `SAVE` data ko foreground mein disk par snapshot karta hai aur saving ke dauran Redis commands block ho sakti hain. Isi liye production mein normal background snapshot ke liye `BGSAVE` zyada suitable hota hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
