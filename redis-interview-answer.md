@@ -769,6 +769,184 @@ async function getProductDetails(productId, redisClient) {
 
 ---
 
+# 🚀 Question 7: What Is a Redis Key-Value Pair?
+
+## 📝 Answer (English — Interview Definition)
+
+A key-value pair is the fundamental data model Redis uses to store and retrieve information.
+
+- **Key:** A binary-safe string that identifies a specific entry.
+- **Value:** The data associated with that key. Depending on the Redis data type, it may be a simple string or a richer structure such as a Hash, List, Set, or Sorted Set.
+
+For example, `username` can be the key and `Amit` its corresponding value.
+
+## 🗣️ Answer (Hinglish)
+
+Redis mein data ko key-value pair ke form mein store aur access kiya jata hai. Isko ek telephone directory ki tarah samjho, jahan key data ka naam/address hai aur value usse juda actual data hai.
+
+```text
+Unique Key       Stored Value
+----------       ------------
+username   --->  Amit
+user:age   --->  28
+active:city ---> Delhi
+```
+
+Agar hume username chahiye, toh Redis ko `username` key denge aur Redis uski stored value return karega.
+
+## 💻 Practical Code Example — Node.js + Redis
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+
+  await redis.connect();
+
+  // 1. SET — store a key-value pair.
+  await redis.set("username", "Amit");
+
+  // 2. GET — retrieve the value using the key.
+  const username = await redis.get("username");
+  console.log(username); // Amit
+
+  // Setting the same key again replaces its previous value.
+  await redis.set("username", "Amit Kumar");
+  console.log(await redis.get("username")); // Amit Kumar
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+## 🔄 Real-World MERN Example — Session Lookup
+
+A session key can map a session ID to a user ID, with an expiry time:
+
+```javascript
+// Store a session-to-user mapping for one hour.
+await redis.set("session:12345", "user_101", { EX: 3600 });
+
+// Retrieve the associated user ID.
+const userId = await redis.get("session:12345");
+```
+
+Here, `session:12345` is the key and `user_101` is its value. `EX: 3600` sets the key to expire after 3,600 seconds, unless it is changed or deleted earlier.
+
+| Command | Purpose | Example |
+|---|---|---|
+| `SET` | Store or replace a value | `SET session:token "xyz123"` |
+| `GET` | Retrieve a value | `GET session:token` |
+| `DEL` | Delete a key | `DEL session:token` |
+| `EXISTS` | Check whether a key exists | `EXISTS session:token` |
+| `EXPIRE` | Set an expiry on an existing key | `EXPIRE session:token 60` |
+
+## ⏱️ Easy Revision — 1-Minute Interview Summary
+
+- Key = identifier or address; value = associated data.
+- `SET` stores a value, `GET` retrieves it, and `DEL` deletes a key.
+- Setting a value again at an existing key normally overwrites the previous value.
+- Redis values can be simple strings or richer data structures.
+- Temporary session keys can use TTL for automatic expiration.
+
+**Interview answer to remember:** “A Redis key-value pair consists of a key that identifies the data and a value that stores the associated information. Redis provides commands such as SET and GET to store and retrieve values, and these pairs are widely used for caching, sessions, and temporary data.”
+
+# 🚀 Question 8: What Is TTL in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+TTL stands for **Time To Live**. In Redis, it tells how many seconds remain before a key with an expiration is due to expire. TTL is useful for temporary data such as cached values, OTPs, API rate-limit windows, and user sessions. Expiry can be set while storing a key using `SET ... EX`, or applied later using `EXPIRE`.
+
+## 🗣️ Answer (Hinglish)
+
+TTL ka full form **Time To Live** hai. Simple words mein, TTL batata hai ki Redis mein kisi expiring key ke expire hone mein kitna time bacha hai.
+
+### Real-world scenario: OTP-based login
+
+Agar OTP sirf 5 minutes tak valid rakhna hai:
+
+1. OTP ko Redis mein store karo.
+2. Us key par TTL = 300 seconds set karo.
+3. Expiry time complete hone ke baad key unavailable ho jayegi.
+
+TTL temporary data ko manage karne mein help karta hai, isliye har key ko manually clean karne ki zaroorat kam ho sakti hai.
+
+## 💻 Practical Code Example — Node.js + Redis
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+
+  await redis.connect();
+
+  // 1. Store an OTP with a five-minute expiry.
+  await redis.set("otp:user101", "482913", { EX: 300 });
+
+  // 2. Check remaining TTL in seconds.
+  const remainingTime = await redis.ttl("otp:user101");
+  console.log("Remaining TTL (seconds):", remainingTime);
+
+  // 3. Retrieve the OTP while the key exists.
+  const otp = await redis.get("otp:user101");
+  console.log("Retrieved OTP:", otp); // 482913
+
+  // After the expiry, GET returns null.
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+## 📊 Core Redis TTL Commands
+
+| Command | Purpose | Example |
+|---|---|---|
+| `SET ... EX` | Store a value with expiry | `SET token "xyz" EX 300` |
+| `EXPIRE` | Set expiry on an existing key | `EXPIRE token 60` |
+| `TTL` | Check remaining time in seconds | `TTL token` |
+| `PTTL` | Check remaining time in milliseconds | `PTTL token` |
+| `PERSIST` | Remove the expiry from a key | `PERSIST token` |
+
+### TTL Return Codes
+
+- **Positive number** (for example, `120`): The key exists and has around 120 seconds remaining.
+- **`-1`**: The key exists but has no expiry configured.
+- **`-2`**: The key does not exist, or it has already expired.
+
+## 🔐 Production Note for MERN Projects
+
+TTL alone does not make an OTP flow secure. After a user successfully verifies an OTP, delete the key in the backend so the same OTP cannot be reused. Also use appropriate attempt limits and verification controls.
+
+```javascript
+await redis.set("otp:user101", "482913", { EX: 300 });
+
+// Once the OTP has been successfully verified:
+await redis.del("otp:user101");
+```
+
+## ⏱️ Easy Revision — 1-Minute Interview Summary
+
+- TTL = Time To Live; it tells the remaining lifetime of an expiring key.
+- Use `SET key value EX 300` to set a five-minute expiry.
+- `TTL` returns seconds and `PTTL` returns milliseconds.
+- `-1` means the key exists without an expiry; `-2` means the key is missing.
+- TTL is commonly used for caching, OTPs, sessions, and rate-limiting windows.
+- Delete a successfully used OTP explicitly as part of the verification flow.
+
+**Interview answer to remember:** “TTL stands for Time To Live. It defines how long a Redis key remains available before expiring. We set it using the EX option in SET or with EXPIRE, and check remaining time with TTL or PTTL.”
+
 ---
 
 *More answers will be added in question order, using this format.*
