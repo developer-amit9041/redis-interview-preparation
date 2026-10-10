@@ -2435,6 +2435,163 @@ if (cachedPayload) {
 - **English Pitch:** "The Redis GET command pulls the string values mapped to a specific key, returning null if the data is absent or expired. It forms the standard backbone for cache-read lookups, configuration fetches, and authentication token verifications."
 - **Hinglish Quick Memory:** GET command ka simple kaam hai key do aur data lo. Agar key memory mein active nahi hai ya uska TTL khatam ho chuka hai, toh response mein null milega. Yeh command strictly dynamic strings ke liye hai, baki object types par lagane par data type ka constraint error milega.
 
+# 🚀 Question 26: What Is SETEX in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+SETEX is a legacy, atomic Redis command that assigns a string value to a key and simultaneously applies an expiration timeout (Time-To-Live) measured strictly in seconds.
+
+The biggest architectural benefit of SETEX is atomicity. Instead of executing two separate sequential operations over the network (SET followed by EXPIRE), it bundles both processes into a single operation to eliminate the gap between writing the value and setting its expiration. While highly prominent in earlier implementations, modern development practices generally prefer using the integrated SET key value EX seconds syntax modifiers, which offer the same atomic behavior.
+
+## 🗣️ Answer in Hinglish
+
+SETEX ka full form hota hai "Set with Expiration". Yeh command ek hi step mein do bade kaam karta hai:
+
+1. Background memory mein naya key-value store (write) karta hai.
+2. Usi key par seconds ke adhaar par ek dynamic auto-delete timer lagata hai.
+
+~~~text
+Syntax: SETEX <key> <seconds> <value>
+
+Example: SETEX otp:user101 300 "482913"
+~~~
+
+### 💡 Structural Behavior
+
+Agar aap alag commands use karein, toh pehle SET aur phir EXPIRE chalana padta hai. In dono operations ke beech interruption hone par key expiration set kiye bina reh sakti hai. SETEX dono kaam ek atomic command mein karta hai, isliye yeh temporary security items jaise OTPs ke liye useful hai.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. setEx — Single atomic event mapping for 5 minutes (300 seconds)
+  await redis.setEx("otp:user101", 300, "482913");
+
+  // 2. Read value instantly from RAM
+  const activeOtp = await redis.get("otp:user101");
+  console.log("Current Live OTP Data:", activeOtp); // Output: 482913
+
+  // 3. Check exact countdown ticking
+  const remainingLife = await redis.ttl("otp:user101");
+  console.log("Seconds remaining before wipeout:", remainingLife);
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Transient OTP Security)
+
+MERN application controllers mein verification flow handle karte waqt temporary OTP ko is tarah store kar sakte hain:
+
+~~~javascript
+// Verification token generate karke 5 minutes ke liye store karna
+await redis.setEx("otp:user101", 300, "482913");
+~~~
+
+**Standard Production Advice:** Jab user successfully correct code submit kar de, toh backend ko redis.del() se OTP turant clear kar dena chahiye. Sirf TTL par depend karne ke bajaye successful use ke baad explicit deletion bhi karein.
+
+## 📋 Core Expiration Commands Mapping Table
+
+| Command Strategy | Time Unit Metric | Execution Nature | Production Suitability |
+|---|---|---|---|
+| SETEX key sec val | Seconds | Atomic operation | Legacy systems and cache management. |
+| SET key val EX sec | Seconds | Atomic operation | Modern production design standard. |
+| PSETEX key ms val | Milliseconds | Atomic operation | Millisecond-based expiration. |
+| EXPIRE key sec | Seconds | Separate operation on an existing key | Updating the lifespan of an existing key. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "SETEX is an atomic Redis command that writes a string value and attaches a lifespan in seconds within a single execution. It avoids the gap that can occur when SET and EXPIRE are sent as separate commands, although modern code generally prefers SET with the EX option."
+- **Hinglish Quick Memory:** SETEX ka matlab hai saving plus automatic expiry. Ek hi command mein data memory mein save hota hai aur uska timeout seconds mein set ho jata hai.
+
+---
+
+# 🚀 Question 27: What Is EXPIRE in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+The EXPIRE command in Redis is an operational modifier used to assign or update a Time-To-Live (TTL) timeout to a key that already exists inside the memory pool.
+
+Unlike SETEX, which binds data creation and expiration limits together, EXPIRE accepts an existing key and attaches a countdown measured in seconds. If the key reaches the end of this countdown, Redis automatically removes it. If the targeted key does not exist, EXPIRE returns 0; if the expiration is successfully applied, it returns 1 at the Redis command level.
+
+## 🗣️ Answer in Hinglish
+
+EXPIRE command ka use pehle se bani hui (existing) keys par dynamic expiration deadline ya timeout lagane ke liye hota hai.
+
+~~~text
+Step 1: SET profile:name "Amit"
+        ──► Key memory mein save ho gayi, by default no TTL.
+
+Step 2: EXPIRE profile:name 60
+        ──► Usi existing key par 1 minute ka timer lag gaya.
+~~~
+
+## ⚖️ SETEX vs EXPIRE — Asli Technical Fark
+
+- **SETEX:** Yeh ek combined command hai. Naya string data create karte waqt hi expiry set kar deta hai.
+- **EXPIRE:** Yeh kisi bhi existing Redis key par TTL set kar sakta hai, chahe key String, Hash, List, Set ya Sorted Set type ki ho.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // Step 1: Base write tracking element setup (persistent by default)
+  await redis.set("session:token:99", "secret_auth_hash");
+
+  // Step 2: Dynamically attach a 60 seconds lifespan using EXPIRE
+  const processStatus = await redis.expire("session:token:99", 60);
+  console.log("Was expiration timer applied successfully?", processStatus);
+
+  // Step 3: Verify the remaining countdown
+  const activeTtl = await redis.ttl("session:token:99");
+  console.log("Total remaining time:", activeTtl, "seconds");
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Cache TTL)
+
+MERN project architectures mein product catalog cache populate karne ke baad us par expiration alag se apply kar sakte hain:
+
+~~~javascript
+// Mongoose layer response object ko Redis mein store karna
+await redis.set("product:101", JSON.stringify({ name: "Laptop", price: 50000 }));
+
+// Key ki lifecycle ko 5 minutes tak limit karna
+await redis.expire("product:101", 300);
+~~~
+
+## 📋 Control Lifecycle Modification Table
+
+| Lifespan Management Command | Target Metric Unit | Technical Result |
+|---|---|---|
+| EXPIRE key 60 | Seconds | Sets a countdown on an existing key. |
+| PEXPIRE key 5000 | Milliseconds | Sets a 5-second expiration. |
+| TTL key | Seconds | Returns the remaining lifetime. |
+| PERSIST key | No expiration | Removes the existing expiration limit, making the key persistent. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "The EXPIRE command sets or updates a seconds-based TTL on an existing Redis key. At the Redis command level, it returns 1 when the expiration is applied and 0 when the key does not exist. It can manage key lifetimes for Redis Strings, Hashes, Lists, Sets, and Sorted Sets."
+- **Hinglish Quick Memory:** EXPIRE ka kaam pehle se existing Redis key par timeout lagana hai. Key mil jaaye aur expiration apply ho, toh Redis command 1 return karta hai; key missing ho, toh 0 return hota hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
