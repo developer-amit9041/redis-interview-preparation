@@ -1621,6 +1621,174 @@ main().catch((err) => {
 
 **Interview answer to remember:** “Yes, Redis can be used as a primary database when the data model and workload fit its design. It supports RDB/AOF persistence and replication, but durability depends on configuration and recovery testing. For typical MERN applications, I often use MongoDB as the source of truth and Redis for caching or supporting fast state.”
 
+## 🟡 Level 2 — Data Types & Commands
+
+# 🚀 Question 16: What Is Redis String?
+
+## 📝 Answer (English — Interview Definition)
+
+A Redis String is the most fundamental and simplest data type available in Redis. It is binary-safe, meaning it can store any kind of data up to a maximum size of 512 MB per key.
+
+Redis Strings are incredibly versatile and can hold plain text, numeric integers/floats, raw binary objects (like images or encrypted blobs), or serialized data structures such as stringified JSON objects. They are widely used in production for standard API response caching, authentication tokens, transient session storage, and lock management (via NX flags).
+
+## 🗣️ Answer in Hinglish
+
+Redis String sabse basic aur common data type hai jisme hum ek single unique key ke against ek single value store karte hain. Ise aap programming languages ke standard key-value map ki tarah samajh sakte ho:
+
+```text
+Unique Key            Stored Value
+------------          -------------
+username       ───►   "Amit"
+user:age       ───►   "28"
+page_views     ───►   "100"
+```
+
+Redis String ka use simple configuration store karne, heavy API ka raw JSON response cache karne, aur distributed systems mein concurrent traffic counters ko increment karne ke liye kiya jata hai.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. Plain string store karna aur read karna
+  await redis.set("username", "Amit");
+  console.log("Username:", await redis.get("username")); // Output: Amit
+
+  // 2. Numeric string store karke use atomically badhana (Counters)
+  await redis.set("page_views", "100");
+  await redis.incr("page_views"); // Race-condition free atomic increment
+  console.log("Page Views:", await redis.get("page_views")); // Output: 101
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+```
+
+## 🔄 Real-World MERN Usage Pattern (JSON Caching)
+
+MERN stack application mein backend filters/routes ko optimize karne ke liye hum MongoDB model arrays ko stringify karke Redis String mein save karte hain:
+
+```javascript
+// Caching an entire product profile for 5 minutes (TTL: 300s)
+await redis.set(
+  "product:101",
+  JSON.stringify({ name: "Laptop", price: 50000 }),
+  { EX: 300 }
+);
+```
+
+## 📋 Essential String Commands Table
+
+| Command | Technical Purpose | Practical Example |
+|---|---|---|
+| SET | Memory mein variable value map karna. | `SET global:maintenance "false"` |
+| GET | Key ki single value load karna. | `GET global:maintenance` |
+| MSET | Ek se zyada string items single trip mein save karna. | `MSET key1 "val1" key2 "val2"` |
+| INCR | Target counter value ko exactly 1 se add up karna. | `INCR dashboard:total_visitors` |
+| APPEND | Existing string ke end mein extra text patch karna. | `APPEND user:logs ";action_fired"` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis String is the simplest binary-safe data type that maps a unique key to a single text, numeric, or serialized JSON value up to 512MB. It is the primary data type used for generic caching, fast string lookups, and atomic counter operations."
+- **Hinglish Quick Memory:** String matlab pure key-value layout. Isme text, number ya JSON kuch bhi daal do string banakar. SET se overwrite hoga, GET se bahar aayega, aur agar number hai toh INCR chalakar bina error ke live counter badha lo.
+
+---
+
+# 🚀 Question 17: What Is Redis Hash?
+
+## 📝 Answer (English — Interview Definition)
+
+A Redis Hash is a highly efficient data structure that stores a collection of field-value pairs under a single Redis key. Internally, it is implemented as a flat hash table, making it the perfect choice for representing object models natively.
+
+Using Redis Hashes is an architectural best practice because it dramatically reduces key namespaces. Instead of generating separate individual top-level keys for every property of an object, you store the entire record under one master key while retaining the ability to read, write, or mutate specific properties independently.
+
+## 🗣️ Answer in Hinglish
+
+Redis Hash ko aap ek standalone JavaScript Object ya MERN Schema ki tarah dekh sakte ho.
+
+Maan lijiye aapke paas ek user model hai. Agar aap Redis String use karte, toh aapko `user:101:name`, `user:101:role` alag-alag keys banani padtin. Lekin Hash ki help se aap ek hi master key ke andar pura mapping store kar sakte hain:
+
+**Master Key:** `user:101`
+
+```text
+Internal Fields        Internal Values
+-----------------      ---------------
+name            ───►   "Amit"
+role            ───►   "Developer"
+city            ───►   "Delhi"
+```
+
+## ⚖️ String vs Hash — Core Difference
+
+- **String:** Pura data (like JSON string) ek sath fetch ya delete hota hai. Ek inner key badalni ho toh poora object parse karna padega.
+- **Hash:** Aap object ke andar bina baaki fields ko chede sirf ek target field (jaise city) ko change ya read kar sakte hain.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. HSET — Pura object structure hash format mein store karna
+  await redis.hSet("user:101", {
+    name: "Amit",
+    role: "Developer",
+    city: "Delhi"
+  });
+
+  // 2. HGET — Kisi ek specific single property ko pull out karna
+  const userName = await redis.hGet("user:101", "name");
+  console.log("User Name Field:", userName); // Output: Amit
+
+  // 3. HGETALL — Pura hash memory map ek sath object ki tarah return lena
+  const fullProfile = await redis.hGetAll("user:101");
+  console.log("Full Hash Object:", fullProfile);
+
+  // 4. Update Single Field — Bina baaki parameters ko parse ya touch kiye
+  await redis.hSet("user:101", "city", "Mumbai");
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+```
+
+## 🔄 Real-World MERN Optimization Benefit
+
+Jab aap user details cache kar rahe hote ho, aur aapko session middleware mein sirf check karna hai ki user active block hai ya nahi:
+
+```javascript
+// Pure object ko parse kiye bina directly status string reload kar lo RAM se
+const userRole = await redis.hGet("user:101", "role");
+```
+
+Isse un-necessary JSON serialization parsing ka cost zero ho jata hai aur network transfer bandwidth clean rehti hai.
+
+## 📋 Essential Hash Commands Table
+
+| Command | Technical Purpose | Production Example |
+|---|---|---|
+| HSET | Hash structure ke andar fields create ya overwrite karna. | `HSET customer:77 status "vip"` |
+| HGET | Target key ke single attribute field ki value read karna. | `HGET customer:77 status` |
+| HGETALL | Pure object dictionary layout ko read karke load karna. | `HGETALL customer:77` |
+| HDEL | Hash storage block se kisi specific element property ko nikalna. | `HDEL customer:77 temporary_token` |
+| HEXISTS | Check karna ki hash ke andar koi explicit variable property active hai ya nahi. | `HEXISTS customer:77 internal_id` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Redis Hash maps a single key to multiple internal field-value pairs, acting as a native representation of flat objects. It optimizes memory by consolidating parameters and permits reading or writing single properties via HSET/HGET without the computational cost of serializing entire JSON strings."
+- **Hinglish Quick Memory:** Hash matlab backend ka JavaScript Object. Pura data bracket daal kar ek hi key (user:id) mein fill kar do. Pure structural objects ko direct hit kiye bina kisi ek line value ko update karne ke liye HSET aur pure parameters check karne ke liye HGETALL ka use karo.
+
 ---
 
 *More answers will be added in question order, using this format.*
