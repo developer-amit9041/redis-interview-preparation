@@ -12030,6 +12030,120 @@ Dono strategies ka use case ke according decision lena chahiye. Har failure mein
 - **English Pitch:** "An application should handle Redis failure gracefully rather than crashing automatically. For caching, I would fall back to the primary database where appropriate. For critical functions such as authentication or distributed coordination, I would use safe failure behavior. I would also configure timeouts, monitoring, error handling, and fallback strategies."
 - **Hinglish Quick Memory:** "Redis down hone par app ko blindly crash nahi karna chahiye. Cache ke case mein MongoDB fallback kar sakte hain, lekin sessions, locks aur security checks ke case mein safe failure chahiye. Timeouts, monitoring aur database par extra load handle karna bhi important hai."
 
+## 🔥 Level 9 — Advanced / 3–4 Year Experience
+
+# 🚀 Question 121: What Is Redis Eviction Policy?
+
+## 📝 Answer (English — Interview Definition)
+
+A **Redis eviction policy** determines which keys Redis can remove when memory usage reaches the configured `maxmemory` limit and additional memory is required.
+
+Redis supports policies such as LRU (Least Recently Used), LFU (Least Frequently Used), random eviction, TTL-based eviction, and `noeviction`. The right policy depends on whether Redis is being used as a cache or to store data that must not be automatically evicted.
+
+## 🗣️ Answer in Hinglish
+
+Redis mein data store hota rehta hai. Jab Redis ki memory configured `maxmemory` limit tak pahunch jaati hai aur naye data ke liye extra memory chahiye hoti hai, tab Redis ko decide karna hota hai ki kya kare.
+
+**Eviction policy decide karti hai ki Redis kis key ko remove karega, ya naye write ko reject karega.**
+
+Example: MERN application Redis mein product data cache karti hai. Redis ki memory full hone par old ya kam-used cache keys remove kiye ja sakte hain, taaki naye data ke liye space mil sake.
+
+Lekin agar Redis mein important session ya application data stored hai, toh eviction policy carefully choose karni chahiye. Automatically key delete hona application ke behavior ko affect kar sakta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       Node.js Application
+               |
+               | Write new data
+               v
+          Redis Server
+               |
+               v
+      Has maxmemory been reached?
+             /       \
+           No         Yes
+           |           |
+           v           v
+      Store data   Apply eviction policy
+                       |
+             +---------+---------+
+             |                   |
+             v                   v
+        Remove eligible      noeviction:
+        key(s) if needed     reject write
+             |
+             v
+       Make room for data
+~~~
+
+Eviction tabhi relevant hota hai jab configured memory limit hit ho aur additional memory chahiye. Actual behavior configuration, eviction candidates aur command ke memory requirements par depend karta hai.
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Check Redis memory configuration
+
+~~~bash
+redis-cli CONFIG GET maxmemory
+redis-cli CONFIG GET maxmemory-policy
+redis-cli INFO memory
+~~~
+
+In commands se configured memory limit, current eviction policy aur memory usage dekh sakte ho.
+
+### Step 2: Configure an eviction policy
+
+Cache-oriented application mein example ke liye `allkeys-lru` set kar sakte hain:
+
+~~~bash
+redis-cli CONFIG SET maxmemory 100mb
+redis-cli CONFIG SET maxmemory-policy allkeys-lru
+~~~
+
+- `maxmemory 100mb` — Redis ke liye 100 MB memory limit configure karta hai.
+- `allkeys-lru` — eviction required hone par all keys mein se least-recently-used candidate select karta hai.
+
+**Production note:** `CONFIG SET` ka support Redis deployment aur permissions par depend karta hai. Permanent setting ke liye Redis configuration ya managed-service settings mein change karein. Production data par policy change karne se pehle impact test karein.
+
+### Step 3: Example from a MERN project
+
+~~~javascript
+// Cache a product for quick reads
+await redis.set(
+  "product:101",
+  JSON.stringify({ name: "Laptop", price: 50000 }),
+  { EX: 300 }
+);
+~~~
+
+Agar memory limit hit ho jaati hai aur Redis ko eviction ki zaroorat hoti hai, toh selected policy ke according eligible keys remove ki ja sakti hain. `allkeys-lru` mein key ka TTL hona zaroori nahi hai.
+
+## 📊 Redis Eviction Policies Comparison
+
+| Policy | Explanation | Suitable use case |
+|---|---|---|
+| `noeviction` | Eviction nahi karta; memory limit ke baad memory badhane wale writes reject ho sakte hain | Data ko automatically evict nahi karna ho |
+| `allkeys-lru` | Sabhi keys mein se least-recently-used candidates | General-purpose cache |
+| `volatile-lru` | Sirf expiry/TTL wali keys mein LRU candidates | Persistent keys ko eviction se bachana ho |
+| `allkeys-lfu` | Sabhi keys mein se least-frequently-used candidates | Frequently reused cache data |
+| `volatile-lfu` | TTL wali keys mein LFU candidates | TTL-based cache with frequency awareness |
+| `allkeys-random` | Sabhi keys mein se random candidates | Access pattern important na ho |
+| `volatile-random` | TTL wali keys mein se random candidates | Expiring keys mein random eviction |
+| `volatile-ttl` | TTL wali keys mein se shortest remaining TTL candidates | Jaldi expire hone wali keys ko prefer karna |
+
+**Important points:**
+
+- LRU ka matlab hai *Least Recently Used* — jo key kaafi time se access nahi hui.
+- LFU ka matlab hai *Least Frequently Used* — jo key kam frequently access hui.
+- Redis ka LRU/LFU selection approximate hota hai, perfectly exact global ordering nahi.
+- `volatile-*` policies ke paas eviction candidates ke liye TTL wali keys honi chahiye. Agar eligible keys nahi hain, toh Redis eviction nahi kar paata aur write reject ho sakta hai.
+- Eviction policy aur TTL expiration alag hain: TTL key ko time ke basis par expire karta hai, jabki eviction memory pressure ke response mein hoti hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis eviction policy determines which keys Redis removes when memory reaches the configured `maxmemory` limit and more memory is required. Common policies include `allkeys-lru`, `allkeys-lfu`, TTL-based policies, random eviction, and `noeviction`. For a cache, I would select a policy based on the access pattern and whether all keys are safe to evict."
+- **Hinglish Quick Memory:** "Redis eviction policy decide karti hai ki memory limit hit hone par kaunsi key remove karni hai. LRU recent access, LFU access frequency, aur TTL-based policy expiry time ko consider karti hai. Cache ke liye policy workload ke according choose karni chahiye; important data ke liye eviction impact carefully check karna chahiye."
+
 ---
 
 *More answers will be added in question order, using this format.*
