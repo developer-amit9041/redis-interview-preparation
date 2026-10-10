@@ -7290,6 +7290,133 @@ Kyuki watched key `EXEC` se pehle change hui thi, Redis transaction abort kar de
 - **English Pitch:** "`WATCH` provides optimistic concurrency control in Redis. It monitors one or more keys, and if any watched key changes before `EXEC`, Redis aborts the transaction. The application can then read the latest data and retry the operation if appropriate."
 - **Hinglish Quick Memory:** "`WATCH` key ko monitor karta hai. Agar `WATCH` aur `EXEC` ke beech key change ho jaaye, toh Redis transaction abort kar sakta hai. Application fresh value read karke operation dobara try kar sakti hai."
 
+# 🚀 Question 84: What Is an Atomic Operation in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+An **atomic operation in Redis** is an operation that executes as a single, indivisible command from the perspective of other clients. Other commands cannot interrupt a Redis command while it is executing.
+
+For example, `INCR` increments a counter atomically. This helps prevent race conditions that can occur when an application reads a value, increments it in application code, and writes it back separately.
+
+**Important:** An atomic command does not mean that a group of commands automatically supports rollback. Redis transactions and atomic commands are related concepts, but they are not the same thing.
+
+## 🗣️ Answer in Hinglish
+
+Atomic operation ka matlab hai ki operation ek single unit ki tarah execute hota hai. Redis mein ek command execute ho rahi ho, toh doosre clients ki commands us command ke beech mein interrupt nahi karti.
+
+Maan lo kisi website par ek product ke views count karne hain.
+
+Agar hum application mein ye steps alag-alag karein:
+
+1. Current views read karo.
+2. Value mein `1` add karo.
+3. Updated value Redis mein save karo.
+
+Toh multiple requests ek saath aane par race condition ho sakti hai. Do requests same old value read karke ek hi final value write kar sakti hain.
+
+Iske badle Redis ka `INCR` use kar sakte hain. Yeh counter ko atomically increment karta hai.
+
+**Yaad rakho:** Single Redis command ki atomicity aur multiple commands wali transaction ki rollback guarantee alag concepts hain.
+
+## 🏗️ Architecture Diagram
+
+### Non-atomic read-modify-write pattern
+
+~~~text
+Request A --> Read views = 10
+Request B --> Read views = 10
+Request A --> Write views = 11
+Request B --> Write views = 11
+
+Final value = 11
+Expected value = 12
+~~~
+
+### Atomic `INCR` operation
+
+~~~text
+Request A --> INCR views --> 11
+Request B --> INCR views --> 12
+
+Final value = 12
+~~~
+
+The first example illustrates a race condition in a separate read-modify-write sequence. The second uses Redis's atomic counter command.
+
+## 💻 Practical Redis CLI Example
+
+### A. Non-atomic approach — race condition ka risk
+
+~~~bash
+SET page:views 10
+GET page:views
+~~~
+
+Application value `10` read karti hai, usmein `1` add karti hai aur phir `SET` karti hai:
+
+~~~bash
+SET page:views 11
+~~~
+
+Agar do requests ek hi time par `10` read kar lein, toh dono `11` write kar sakti hain. Ek increment lose ho sakta hai.
+
+### B. Atomic approach — `INCR`
+
+~~~bash
+SET page:views 10
+INCR page:views
+INCR page:views
+GET page:views
+~~~
+
+Expected output:
+
+~~~text
+"10"
+(integer) 11
+(integer) 12
+"12"
+~~~
+
+Redis har `INCR` ko atomically execute karta hai, isliye concurrent increments ek-doosre ke updates ko overwrite nahi karte.
+
+### C. Other useful atomic Redis commands
+
+~~~bash
+INCR total:orders
+DECR inventory:reserved
+HINCRBY product:101 views 1
+SET user:101:status "active"
+~~~
+
+Ye examples individual Redis commands hain. Multi-step business logic ke liye, requirement ke according `MULTI`/`EXEC`, `WATCH` ya Lua scripting ki zaroorat ho sakti hai.
+
+## 📊 Important Points
+
+| Concept | Explanation |
+|---|---|
+| Atomic operation | Command ek indivisible unit ki tarah execute hoti hai |
+| `INCR` | Counter ko atomically increment karta hai |
+| Race condition | Concurrent operations ke beech conflicting updates se incorrect result aa sakta hai |
+| `MULTI` / `EXEC` | Multiple commands ko isolated transaction mein execute karte hain |
+| `WATCH` | Watched keys ke concurrent changes detect karne mein help karta hai |
+| Lua scripting | Redis mein related operations ko ek atomic script mein combine kar sakte hain |
+| Automatic rollback | Atomicity ka matlab automatic rollback nahi hota |
+
+### Atomic Operation vs Redis Transaction
+
+| Feature | Single Atomic Command | Redis Transaction (`MULTI` / `EXEC`) |
+|---|---|---|
+| Example | `INCR views` | `MULTI`, `SET`, `INCR`, `EXEC` |
+| Purpose | Ek operation ko atomically execute karna | Multiple commands ko ek isolated execution group mein chalana |
+| Other clients ke commands execution ke beech interleave hote hain? | Ek command ke execution ke beech nahi | Transaction commands execute hote waqt nahi |
+| Runtime error par automatic rollback | Not applicable as a multi-command rollback | Nahi; already successful commands automatically undo nahi hote |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "An atomic operation in Redis executes as a single indivisible command, so other clients cannot interrupt it during execution. Commands such as `INCR` help prevent race conditions in concurrent counter updates. However, atomicity of a single command does not imply automatic rollback for a multi-command transaction."
+- **Hinglish Quick Memory:** "Redis atomic operation ek single unit ki tarah execute hoti hai. `INCR` jaise commands concurrent updates mein race conditions se bachate hain. Lekin atomic command aur transaction rollback same cheez nahi hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
