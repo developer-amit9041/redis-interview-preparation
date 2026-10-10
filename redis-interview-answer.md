@@ -6741,6 +6741,130 @@ redis-cli XACK order_stream order_workers <entry-id>
 - **English Pitch:** "Redis Pub/Sub is suitable for real-time broadcasting when message history is not required. Redis Streams stores ordered entries and supports reading historical messages, replaying retained entries, and consumer groups with acknowledgements. I would choose Pub/Sub for lightweight live updates and Streams when consumers need stored events and more controlled processing."
 - **Hinglish Quick Memory:** "Redis Pub/Sub active subscribers ko live message broadcast karta hai, lekin message store nahi karta. Redis Streams messages ko entries ke form mein store karta hai. Ismein hum history read, messages replay aur consumer groups ke through processing kar sakte hain. Simple live updates ke liye Pub/Sub, aur stored events/background processing ke liye Streams use karenge."
 
+## 🟠 Level 6 — Transactions & Atomicity
+
+# 🚀 Question 79: Does Redis Support Transactions?
+
+## 📝 Answer (English — Interview Definition)
+
+**Yes, Redis supports transactions** using commands such as `MULTI`, `EXEC`, and `DISCARD`. After `MULTI`, Redis queues commands; `EXEC` executes the queued commands sequentially as one isolated transaction, while `DISCARD` cancels the queued commands.
+
+Redis transactions do not provide full database-style rollback. If a command encounters a runtime error during execution, Redis does not automatically undo other commands in the transaction. `WATCH` can be used for optimistic concurrency control.
+
+## 🗣️ Answer in Hinglish
+
+Redis transactions support karta hai. Jab hume multiple Redis commands ko ek transaction ke form mein execute karna hota hai, tab hum `MULTI` aur `EXEC` use karte hain.
+
+Iska flow samjho:
+
+1. **`MULTI`** — Transaction start karta hai.
+2. **Commands** — Redis commands ko execute karne ke bajaye queue mein rakhta hai.
+3. **`EXEC`** — Queued commands ko execute karta hai.
+4. **`DISCARD`** — `EXEC` se pehle queued commands cancel kar deta hai.
+
+**Important interview point:** Redis transaction ke commands sequentially execute hote hain, aur unke execution ke beech doosre clients ke commands interleave nahi hote. Lekin SQL database ki tarah automatic rollback assume nahi karna chahiye.
+
+### Real-World Example
+
+Maan lo Node.js application mein order create hone par hume order count increment karna hai aur order ka status set karna hai. Redis transaction in related commands ko ek transaction mein execute karne mein help kar sakta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       Application
+           |
+           | MULTI
+           v
+    Redis Transaction
+           |
+           | Commands are queued
+           v
+      SET order:101:status pending
+      INCR orders:count
+           |
+           | EXEC
+           v
+   Commands execute sequentially
+           |
+           v
+       Results returned
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### A. Using `MULTI` and `EXEC`
+
+Redis CLI mein ye commands run karo:
+
+~~~bash
+MULTI
+SET order:101:status "pending"
+INCR orders:count
+EXEC
+~~~
+
+`MULTI` ke baad, har command ka response `QUEUED` hoga. `EXEC` par commands run hongi aur results return honge, jaise:
+
+~~~text
+1) OK
+2) (integer) 1
+~~~
+
+Yahan `SET` order ka status set karta hai aur `INCR` order counter ko increment karta hai.
+
+### B. Using `DISCARD`
+
+Agar `EXEC` se pehle transaction cancel karna ho:
+
+~~~bash
+MULTI
+SET user:101:name "Amit"
+INCR users:count
+DISCARD
+~~~
+
+`DISCARD` queued commands ko cancel kar dega, isliye is transaction ke queued `SET` aur `INCR` execute nahi honge.
+
+### C. Using `WATCH` for Concurrency Control
+
+`WATCH` kisi key ko monitor karta hai. Agar transaction execute hone se pehle watched key ko kisi doosre client ne modify kar diya, toh `EXEC` abort ho sakta hai.
+
+~~~bash
+WATCH account:101:balance
+MULTI
+SET account:101:balance 500
+EXEC
+~~~
+
+Yeh simplified example hai. Real applications mein transaction ko business logic aur concurrent updates ke hisaab se design karna chahiye.
+
+## 📊 Important Redis Transaction Commands
+
+| Command | Purpose |
+|---|---|
+| `MULTI` | Transaction mode start karta hai; subsequent commands queue hote hain. |
+| `EXEC` | Queued commands execute karta hai. |
+| `DISCARD` | Execute hone se pehle queued transaction cancel karta hai. |
+| `WATCH` | Keys par optimistic concurrency check lagata hai. |
+| `UNWATCH` | Watched keys ki monitoring hata deta hai. |
+
+### Redis Transactions vs SQL Transactions
+
+| Feature | Redis Transactions | SQL Database Transactions |
+|---|---|---|
+| Group multiple commands | Yes | Yes |
+| Sequential execution | Yes | Yes |
+| Automatic rollback on runtime command error | No | Database-dependent; transactional SQL databases generally support rollback |
+| Optimistic concurrency | `WATCH` | Commonly supported through database isolation/locking mechanisms |
+| Typical commands | `MULTI`, `EXEC`, `DISCARD` | `BEGIN`, `COMMIT`, `ROLLBACK` (database-dependent) |
+
+**Interview trap:** Redis transactions isolate command execution, but they do **not** automatically provide rollback of earlier successful commands if a later command fails at runtime. A command rejected before execution because of a queue-time error can cause `EXEC` to abort the transaction.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Yes, Redis supports transactions using `MULTI`, `EXEC`, and `DISCARD`. Commands are queued after `MULTI` and execute sequentially when `EXEC` is called. Redis transactions isolate execution from other clients, but they do not provide automatic rollback for runtime command errors. `WATCH` can provide optimistic concurrency control."
+- **Hinglish Quick Memory:** "Redis transactions support karta hai. `MULTI` commands queue karta hai, `EXEC` unhe execute karta hai aur `DISCARD` cancel karta hai. `WATCH` concurrent updates detect karne mein help karta hai. Yaad rakho: Redis transaction mein SQL jaisa automatic rollback nahi hota."
+
 ---
 
 *More answers will be added in question order, using this format.*
