@@ -8251,6 +8251,91 @@ Yeh example output hai; actual address aapke setup par depend karega.
 - **English Pitch:** "Redis Sentinel provides high availability by monitoring Redis primary and replica instances, detecting failures, coordinating failover, and helping clients discover the current primary. It improves availability but does not provide data sharding like Redis Cluster."
 - **Hinglish Quick Memory:** "Redis Sentinel primary aur replicas ko monitor karta hai. Primary fail hone par yeh failover coordinate karke replica ko naya primary banane mein help karta hai. Yeh high availability ke liye hai, data sharding ke liye nahi."
 
+# 🚀 Question 92: Why Do We Use Redis Sentinel?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Sentinel is used to improve the availability and resilience of a Redis deployment.** It monitors Redis instances, detects primary failures, coordinates automatic failover when the configured quorum and conditions are satisfied, and provides clients with information about the current primary.
+
+It reduces the need for manual intervention during common primary failures, although it does not eliminate downtime or guarantee that no recent writes will be lost.
+
+## 🗣️ Answer in Hinglish
+
+Sentinel use karte hain taaki Redis ka primary server fail hone par application ko manually har baar naya primary configure na karna pade.
+
+Iske main benefits hain:
+
+1. **Automatic failover:** Primary down hone par eligible replica ko promote karne mein help karta hai.
+2. **Health monitoring:** Redis primary aur replicas ko monitor karta hai.
+3. **Primary discovery:** Application naya primary address discover kar sakti hai.
+4. **Notifications:** Monitored Redis instances ke events aur failures ki notifications configure ki ja sakti hain.
+5. **Better availability:** Manual recovery par dependency kam ho sakti hai.
+
+### Real-World Example
+
+Maan lo aapki MERN application ka Redis primary session data ya cache use kar raha hai. Agar primary fail hota hai, Sentinel replica ko promote karne aur client ko naya primary discover karne mein help kar sakta hai.
+
+Lekin failover complete hone tak temporary connection errors aa sakte hain. Application mein reconnect logic aur suitable retry handling bhi honi chahiye.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+Normal operation:
+App ---> Primary Redis <--- Replica Redis
+             ^                 |
+             |                 | Replication
+             +-----------------+
+                    ^
+                    | Health monitoring
+             Redis Sentinels
+
+Primary fails:
+Sentinels detect failure and reach quorum
+                    |
+                    v
+          Promote an eligible replica
+                    |
+                    v
+         Client discovers the new primary
+~~~
+
+## 💻 Practical Example
+
+### Check the current primary
+
+~~~bash
+redis-cli -p 26379 SENTINEL get-master-addr-by-name mymaster
+~~~
+
+Is command se client/application ko monitored primary ka current host aur port discover karne mein help milti hai. `mymaster` configured Sentinel master name hai.
+
+### Check Sentinel's view of monitored instances
+
+~~~bash
+redis-cli -p 26379 SENTINEL masters
+redis-cli -p 26379 SENTINEL replicas mymaster
+~~~
+
+Yeh commands configured masters aur ek named master ke replicas ki information inspect karne mein help karti hain.
+
+## 📊 Why Use Redis Sentinel?
+
+| Benefit | Why it matters |
+|---|---|
+| Health monitoring | Redis instances ki availability detect karne mein help |
+| Automatic failover | Primary failure par eligible replica promote ho sakta hai |
+| Primary discovery | Clients current primary ka address retrieve kar sakte hain |
+| Notifications | Monitoring events par alerts integrate kiye ja sakte hain |
+| Reduced manual recovery | Failure ke baad operator intervention ki need kam ho sakti hai |
+| Limitations | Brief downtime aur asynchronous replication ke karan recent-write loss ka risk possible hai |
+
+**Production note:** Sentinel ko multiple independent instances ke saath deploy karna chahiye taaki quorum aur failure detection reliable ho. Client libraries ko Sentinel support, reconnection, and retry behavior ke liye configure karna bhi zaroori hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "We use Redis Sentinel for high availability. It monitors primary and replica nodes, detects failures, coordinates failover, helps clients discover the current primary, and can send notifications. It reduces manual recovery work but does not eliminate every interruption or data-loss risk."
+- **Hinglish Quick Memory:** "Sentinel isliye use hota hai taaki primary fail hone par replica ko promote karne, new primary discover karne aur monitoring automate karne mein help mile. Lekin application ko reconnect aur retry handle karna hota hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
