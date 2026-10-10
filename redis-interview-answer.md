@@ -8715,6 +8715,93 @@ Yeh example assume karta hai ki listed addresses par Redis Cluster nodes properl
 - **English Pitch:** "Sharding partitions a dataset across multiple Redis nodes. In Redis Cluster, each key maps to one of 16,384 hash slots, and primary nodes own assigned slots. This distributes storage and workload and enables horizontal scaling."
 - **Hinglish Quick Memory:** "Redis sharding mein data multiple primary nodes mein divide hota hai. Redis Cluster har key ko hash slot assign karta hai; jis node ke paas woh slot hai, request wahan route hoti hai. Isse ek server par poora load nahi rehta."
 
+# 🚀 Question 97: How Does Redis Cluster Distribute Data?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Cluster distributes data across multiple primary nodes using hash slots.** Redis Cluster has 16,384 hash slots, and each primary node is responsible for a subset of those slots. Redis calculates a key's hash slot and routes requests to the node responsible for that slot.
+
+This approach partitions data across nodes and supports horizontal scaling. Replica nodes can replicate primary nodes' data to improve availability.
+
+## 🗣️ Answer in Hinglish
+
+Jab Redis mein bahut zyada data hota hai aur ek server ki memory ya capacity enough nahi hoti, tab Redis Cluster data ko multiple primary nodes mein distribute kar sakta hai.
+
+1. Redis Cluster data ko **16,384 hash slots** mein logically divide karta hai.
+2. Har key ke liye Redis uska hash slot calculate karta hai.
+3. Jis primary node ke paas woh slot assigned hai, request usi node par route hoti hai.
+4. Har primary apne assigned slots ki keys ka data maintain karta hai.
+5. Replica nodes apne associated primary node ka data replicate karte hain.
+
+### Example
+
+Maan lo cluster mein 3 primary nodes hain:
+
+- **Primary A:** slots 0–5,000
+- **Primary B:** slots 5,001–10,000
+- **Primary C:** slots 10,001–16,383
+
+Yeh sirf illustrative slot ranges hain. Real cluster mein slot allocation different ho sakta hai.
+
+Agar `user:101` ka hash slot Primary B ke assigned slots mein aata hai, toh Redis Cluster us key ki request Primary B ko route karega.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+               Redis Cluster
+                    |
+          Calculate key's hash slot
+                    |
+           +--------+--------+
+           |        |        |
+           v        v        v
+       Primary A  Primary B  Primary C
+       Slots A    Slots B    Slots C
+           |        |        |
+           v        v        v
+        Replica A Replica B Replica C
+~~~
+
+Replica nodes primary data ko replicate karte hain. Data partitioning primary nodes ke assigned hash slots se hoti hai.
+
+## 💻 Practical Redis CLI Example
+
+Cluster nodes aur unke slot assignments inspect karne ke liye:
+
+~~~bash
+redis-cli -c CLUSTER SLOTS
+~~~
+
+Cluster mein node details dekhne ke liye:
+
+~~~bash
+redis-cli -c CLUSTER NODES
+~~~
+
+Kisi key ka hash slot dekhne ke liye:
+
+~~~bash
+redis-cli -c CLUSTER KEYSLOT user:101
+~~~
+
+Command output mein jo slot number milega, us slot ko own karne wala primary node us key ka responsible node hoga.
+
+## 📊 Important Points
+
+| Feature | Explanation |
+|---|---|
+| Distribution method | Hash-slot-based partitioning |
+| Total hash slots | 16,384 |
+| Data ownership | Primary nodes slots ka subset own karte hain |
+| Request routing | Key ke hash slot ke responsible node tak |
+| Replication | Replica nodes primary data replicate karte hain |
+| Main benefit | Data ko multiple nodes par distribute karke scale karna |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Cluster distributes keys across 16,384 hash slots. Each primary node owns a subset of slots, and Redis routes a key's request to the node responsible for its slot. Replicas provide copies of primary data for availability."
+- **Hinglish Quick Memory:** "Redis Cluster mein 16,384 hash slots hote hain. Har primary kuch slots own karta hai. Redis key ka slot calculate karke request correct primary tak bhejta hai, aur replica primary ka data copy karta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
