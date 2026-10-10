@@ -5988,6 +5988,85 @@ Subscriber received: New order placed
 - **English Pitch:** "A Publisher sends messages to a named Redis channel, while a Subscriber listens to that channel and receives messages in real time. They communicate through Redis without direct dependencies on each other."
 - **Hinglish Quick Memory:** Publisher message bhejta hai aur Subscriber message receive karta hai. Dono directly connected nahi hote; Redis channel ke through communication hota hai. Subscriber offline ho toh woh message miss kar sakta hai.
 
+# 🚀 Question 71: What Are PUBLISH and SUBSCRIBE in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+`PUBLISH` and `SUBSCRIBE` are Redis Pub/Sub commands. `PUBLISH` sends a message to a specified channel, while `SUBSCRIBE` registers a client to receive messages from one or more channels. Redis delivers published messages to clients currently subscribed to the channel.
+
+## 🗣️ Answer in Hinglish
+
+- **PUBLISH:** Kisi channel par message send karne ke liye use hota hai.
+- **SUBSCRIBE:** Kisi channel ke messages listen karne ke liye use hota hai.
+
+Example: Publisher `notifications` channel par `Hello User` send karta hai. Agar subscriber pehle se channel subscribe kar chuka hai, toh usko message receive ho sakta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+[ Publisher ]
+      |
+      | PUBLISH notifications "Hello User"
+      v
+[ Redis Pub/Sub Hub ]
+      |
+      v
+[ Active Subscriber ]
+      |
+      v
+Received: "Hello User"
+~~~
+
+## 💻 Redis CLI Example
+
+### Step 1: Start the subscriber
+
+Terminal 1 mein Redis CLI open karke run karein:
+
+~~~bash
+SUBSCRIBE notifications
+~~~
+
+Client subscription confirmation show karega aur messages ka wait karega.
+
+### Step 2: Publish a message
+
+Terminal 2 mein run karein:
+
+~~~bash
+PUBLISH notifications "Hello User"
+~~~
+
+Publisher ko response mil sakta hai:
+
+~~~text
+(integer) 1
+~~~
+
+Yahan `1` ka matlab hai ki publish ke waqt ek subscriber ko message deliver hua.
+
+Subscriber ke terminal mein output kuch is tarah dikhega:
+
+~~~text
+message
+notifications
+Hello User
+~~~
+
+Agar koi subscriber channel ko listen nahi kar raha, toh `PUBLISH` ka return value `0` ho sakta hai. Message future delivery ke liye save nahi hota.
+
+## 🎯 Command Purpose
+
+| Command | Purpose | Example |
+|---|---|---|
+| `PUBLISH` | Send a message to a channel. | `PUBLISH notifications "Hello"` |
+| `SUBSCRIBE` | Listen to one or more channels. | `SUBSCRIBE notifications` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`PUBLISH` sends a message to a designated Redis channel, while `SUBSCRIBE` registers a client to receive messages from that channel. Redis delivers messages to currently subscribed clients without retaining them for future delivery."
+- **Hinglish Quick Memory:** `PUBLISH` se channel par message bhejte hain aur `SUBSCRIBE` se messages receive karne ke liye listener register karte hain. Return value 0 ho toh publish ke waqt koi subscriber message receive nahi kar raha tha.
+
 ---
 
 *More answers will be added in question order, using this format.*
