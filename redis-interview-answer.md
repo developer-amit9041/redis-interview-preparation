@@ -8441,6 +8441,98 @@ These commands inspect the setup; they do not configure Sentinel or create a clu
 - **English Pitch:** "Redis Sentinel provides monitoring and automatic failover for a primary-replica deployment, but it does not shard data. Redis Cluster distributes keys across multiple primary nodes using hash slots and also supports replica-based failover. I would choose Sentinel for high availability in a non-clustered setup and Cluster when I need horizontal data sharding."
 - **Hinglish Quick Memory:** "Sentinel failover aur monitoring ke liye hai; data shard nahi karta. Redis Cluster data ko multiple primaries mein distribute karta hai aur replicas ke through failover bhi support karta hai."
 
+# 🚀 Question 94: What Is Redis Cluster?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Cluster is Redis's distributed deployment mode that partitions data across multiple primary nodes using hash slots.** It supports horizontal scaling by distributing keys across the cluster and provides availability through replicas and automatic failover when a primary fails and an eligible replica can be promoted.
+
+Redis Cluster uses **16,384 hash slots**. Each key maps to a slot, and cluster nodes are assigned ranges or sets of those slots.
+
+## 🗣️ Answer in Hinglish
+
+Bhai, Redis Cluster ka use tab karte hain jab hume Redis ka data multiple primary servers mein distribute karna ho, instead of keeping the whole dataset on only one primary.
+
+Redis Cluster mein:
+
+1. Data ko **16,384 hash slots** mein logically divide kiya jaata hai.
+2. Har key ka hash slot calculate hota hai.
+3. Cluster ke primary nodes ko alag-alag slots assign hote hain.
+4. Key jis slot ki hoti hai, request us slot ko own karne wale primary node tak route hoti hai.
+5. Primary ke saath replica configure kar sakte hain, taaki primary fail hone par eligible replica promote ho sake.
+
+**Important:** Redis Cluster horizontal scaling aur high availability provide karta hai, lekin application ka Redis client cluster-aware hona chahiye. Cluster mode mein kai multi-key commands ke liye involved keys ka same hash slot mein hona zaroori hota hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+                 MERN / Node.js App
+                         |
+               Cluster-aware Redis client
+                         |
+              +----------+----------+
+              |          |          |
+              v          v          v
+          Primary A  Primary B  Primary C
+          Slot range Slot range Slot range
+              |          |          |
+              v          v          v
+           Replica A  Replica B  Replica C
+
+        Keys are distributed across 16,384 hash slots.
+        Replicas can help with failover if a primary fails.
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Inspect cluster health
+
+Run against a cluster node:
+
+~~~bash
+redis-cli -c CLUSTER INFO
+~~~
+
+This returns cluster information, including state and slot coverage.
+
+### Step 2: Inspect cluster nodes and slot ownership
+
+~~~bash
+redis-cli -c CLUSTER NODES
+~~~
+
+The output lists cluster nodes, their roles, replication relationships, and assigned slots.
+
+### Step 3: Store and retrieve a key
+
+~~~bash
+redis-cli -c SET user:101 "Amit"
+redis-cli -c GET user:101
+~~~
+
+The cluster-aware CLI routes the command to the node responsible for that key's slot and follows redirections when needed. These commands assume a cluster is already configured and that connection/authentication details are supplied when required.
+
+## 📊 Important Redis Cluster Concepts
+
+| Concept | Explanation |
+|---|---|
+| Primary node | Owns assigned hash slots and accepts writes for those slots |
+| Replica node | Replicates a primary and may be promoted during failover |
+| Hash slot | Logical partition used to map keys to cluster nodes |
+| 16,384 slots | Total number of hash slots in Redis Cluster |
+| Sharding | Distributing keys across multiple primaries |
+| Cluster-aware client | Routes requests and follows redirections such as `MOVED` and `ASK` |
+| Hash tags | A key naming technique, such as `{user:101}:profile` and `{user:101}:orders`, that can place related keys in the same slot |
+
+## ⚠️ Important Interview Point
+
+Redis Cluster provides sharding and replica-based failover, but applications must account for cluster routing and multi-key command constraints. Keys with the same hash tag (the text inside `{...}`) map to the same slot, which helps when a multi-key operation requires keys to be co-located.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Cluster is a distributed Redis deployment that shards data across multiple primary nodes using 16,384 hash slots. It supports horizontal scaling and uses replicas to help provide automatic failover. Applications need a cluster-aware client to route requests and handle redirections."
+- **Hinglish Quick Memory:** "Redis Cluster data ko hash slots ke through multiple primary nodes mein distribute karta hai. Isse horizontal scaling milti hai, aur replicas failover mein help karte hain. Node.js app mein cluster-aware Redis client use karna chahiye."
+
 ---
 
 *More answers will be added in question order, using this format.*
