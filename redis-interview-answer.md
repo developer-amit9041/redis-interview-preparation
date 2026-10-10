@@ -12344,6 +12344,118 @@ Common LRU policies:
 - **English Pitch:** "LRU stands for Least Recently Used. Redis offers LRU-based eviction policies that prefer keys estimated to have been accessed least recently when memory needs to be freed. Redis uses an approximated LRU algorithm, with `allkeys-lru` and `volatile-lru` as common policy choices."
 - **Hinglish Quick Memory:** "LRU ka matlab Least Recently Used hai. Memory limit reach hone par Redis LRU policy ke through kam recently accessed keys ko evict karne ki koshish karta hai. `allkeys-lru` sabhi keys consider karta hai, jabki `volatile-lru` sirf TTL wali keys ko consider karta hai."
 
+# 🚀 Question 124: What Is LFU?
+
+## 📝 Answer (English — Interview Definition)
+
+**LFU stands for Least Frequently Used.** It is a cache eviction strategy that prefers to remove keys that have been accessed less frequently when Redis needs to free memory.
+
+Redis provides LFU-based eviction policies such as `allkeys-lfu` and `volatile-lfu`. Redis uses an approximate LFU algorithm with a decaying frequency counter, so it estimates access frequency rather than keeping a perfectly exact count of every access.
+
+## 🗣️ Answer in Hinglish
+
+LFU ka full form **Least Frequently Used** hai.
+
+Jab Redis ki memory limit reach ho jaati hai aur eviction policy keys remove karne ki permission deti hai, toh LFU policy un keys ko evict karne ki koshish karti hai jo relatively kam frequently access hui hain.
+
+Example: Ek MERN e-commerce application mein:
+
+- Product A ko 1,000 baar access kiya gaya.
+- Product B ko 5 baar access kiya gaya.
+- Memory pressure aane par LFU policy generally Product B ko eviction ke liye prefer kar sakti hai, kyunki uski estimated access frequency kam hai.
+
+**Important:** LFU sirf Redis memory limit reach hone par configured eviction policy ke according kaam karta hai. Redis LFU approximate hai, aur uski frequency estimate time ke saath decay bhi karti hai. Isliye har situation mein exact least-used key select hone ki guarantee nahi hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       Redis Memory Limit Reached
+                  |
+                  v
+        Configured LFU Policy
+                  |
+                  v
+      Estimate key access frequency
+                  |
+          +-------+-------+
+          |               |
+          v               v
+      Product A        Product B
+  Higher frequency   Lower frequency
+          |               |
+          v               v
+       Keep key      Prefer for eviction
+~~~
+
+LFU policy exact usage history maintain karne ke bajaye approximate frequency estimate use karti hai. Final eviction candidates Redis ke algorithm aur configuration par depend karte hain.
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Check the current eviction policy
+
+~~~bash
+redis-cli CONFIG GET maxmemory
+redis-cli CONFIG GET maxmemory-policy
+~~~
+
+Isse pata chalega ki Redis ki memory limit aur current eviction policy kya configured hai.
+
+### Step 2: Configure an LFU eviction policy
+
+For a test environment, Redis configuration mein set kar sakte ho:
+
+~~~bash
+redis-cli CONFIG SET maxmemory-policy allkeys-lfu
+~~~
+
+- `allkeys-lfu`: All keys eviction candidates ho sakti hain.
+- `volatile-lfu`: Sirf woh keys candidates hoti hain jin par expiration/TTL set hai.
+
+**Production caution:** `CONFIG SET` running server configuration change karta hai. Isse production mein blindly run mat karna; pehle workload aur existing configuration verify karo. Configuration restart ke baad retain hogi ya nahi, yeh Redis setup par depend karta hai.
+
+### Step 3: Create sample keys
+
+~~~bash
+redis-cli SET product:A "Laptop"
+redis-cli SET product:B "Mouse"
+~~~
+
+In keys ko different frequency se access karne ke baad, memory pressure aur configured LFU policy ke under Redis eviction candidates select karega. Small example mein eviction ko reliably demonstrate karna mushkil hai, kyunki policy approximate hai aur eviction tab hoti hai jab memory limit aur workload usse trigger karein.
+
+### Step 4: Inspect LFU-related settings
+
+~~~bash
+redis-cli CONFIG GET maxmemory-policy
+redis-cli CONFIG GET maxmemory-samples
+redis-cli CONFIG GET lfu-log-factor
+redis-cli CONFIG GET lfu-decay-time
+~~~
+
+Ye settings LFU/eviction behavior ko samajhne mein help karti hain. Kuch Redis versions ya managed environments mein configuration read/change permissions restricted ho sakti hain.
+
+## 📊 Important Points — LFU vs LRU
+
+| Feature | LFU | LRU |
+|---|---|---|
+| Full form | Least Frequently Used | Least Recently Used |
+| Main focus | How frequently a key is accessed | How recently a key was accessed |
+| Eviction preference | Lower estimated frequency | Less recent access |
+| Redis policy examples | `allkeys-lfu`, `volatile-lfu` | `allkeys-lru`, `volatile-lru` |
+| Approximate algorithm | Yes | Yes |
+| Useful for | Workloads with repeatedly popular keys | Workloads where recent access is a useful signal |
+
+**Example to remember:**
+
+- Product A ko poore din mein 500 baar access kiya gaya, lekin recently access nahi hua.
+- Product B ko abhi access kiya gaya, lekin total sirf 2 baar access hua.
+
+LFU Product A ko higher frequency ki wajah se retain karne ki taraf lean kar sakta hai. LRU recent access ko importance deta hai, isliye Product B ko retain karne ki taraf lean kar sakta hai. Actual eviction Redis ke approximate algorithm aur workload par depend karti hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "LFU stands for Least Frequently Used. Redis offers approximate LFU eviction policies, such as `allkeys-lfu` and `volatile-lfu`, which prefer keys estimated to have lower access frequency when memory needs to be freed. Redis uses a decaying frequency counter, so LFU is an estimate rather than an exact count of all historical accesses."
+- **Hinglish Quick Memory:** "LFU ka matlab Least Frequently Used hai. Memory pressure par Redis LFU policy se kam frequently accessed keys ko evict karne ki koshish karta hai. `allkeys-lfu` sabhi keys consider karta hai, jabki `volatile-lfu` sirf TTL wali keys ko. LFU approximate frequency use karta hai, exact lifetime count nahi."
+
 ---
 
 *More answers will be added in question order, using this format.*
