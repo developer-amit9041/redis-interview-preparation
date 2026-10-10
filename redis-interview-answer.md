@@ -4256,6 +4256,68 @@ MongoDB update successful ho sakta hai, lekin Redis invalidation network timeout
 - **English Pitch:** "Cache invalidation removes or refreshes outdated cached entries after the source data changes. In a cache-aside design, the application commonly updates the database and deletes related Redis keys so later reads can load the current data."
 - **Hinglish Quick Memory:** Database mein change hua toh related Redis keys delete ya refresh karo. MongoDB update ke baad `redis.del()` chalane se next request cache miss par fresh data load kar sakti hai.
 
+# 🚀 Question 49: What Is Cache Avalanche?
+
+## 📝 Answer (English — Interview Definition)
+
+A Cache Avalanche occurs when many cache entries expire or become unavailable around the same time, causing a sudden surge of requests to fall through to the primary database. If the database cannot handle this additional load, latency can spike, connection pools can be exhausted, and the service may become unavailable.
+
+One common cause is assigning the same fixed TTL to a large batch of keys. When those keys expire together during a high-traffic period, many requests can miss the cache at once. Randomized TTL jitter, request coalescing, cache pre-warming, and circuit breakers can help reduce the risk.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo Redis cache mein bahut saare products store hain aur sabhi keys par same TTL—jaise 5 minutes—set kiya gaya hai. Agar kaafi keys ek hi time ke aas-paas expire ho jaati hain, toh unhe read karne wali requests ko Redis mein data nahi milega.
+
+Requests ek saath MongoDB par fallback kar sakti hain. Agar database itni extra queries handle nahi kar pata, toh latency badh sakti hai, connection pool exhaust ho sakta hai, aur service slow ya unavailable ho sakti hai. Isi problem ko **Cache Avalanche** kehte hain.
+
+~~~text
+[ Many Cache Keys Expire Around the Same Time ]
+                       |
+                       v
+             [ Many Cache Misses ]
+                       |
+                       v
+          [ Concurrent DB Fallback Reads ]
+                       |
+                       v
+        [ MongoDB Overload / High Latency ]
+~~~
+
+## 💻 Practical Code Example (TTL Jitter Solution)
+
+~~~javascript
+// Avoid assigning exactly the same TTL to every cache key.
+function getJitteredTTL(baseSeconds = 300, maxJitterSeconds = 120) {
+  const randomJitter = Math.floor(Math.random() * maxJitterSeconds);
+  return baseSeconds + randomJitter;
+}
+
+async function secureCachePopulation(productId, dataset) {
+  const cacheKey = `product:${productId}`;
+
+  // Example TTL is randomized from 300 to 419 seconds
+  await redis.set(cacheKey, JSON.stringify(dataset), {
+    EX: getJitteredTTL(300, 120)
+  });
+}
+~~~
+
+TTL jitter spreads expirations across a time window. It reduces synchronized expiry risk, but it does not by itself prevent every possible avalanche or protect against a database outage.
+
+## 📋 Cache Avalanche Mitigation Strategy Matrix
+
+| Architectural Solution | Practical Implementation | Engineering Goal |
+|---|---|---|
+| TTL jitter / randomization | Add a random offset to the base TTL. | Spread expiration events over time. |
+| Request coalescing | Use a per-key lock or single-flight pattern so concurrent misses share one database fetch. | Reduce duplicate database queries for the same key. |
+| Cache pre-warming | Refresh important keys before peak traffic or before expected expiry. | Reduce misses for frequently used data. |
+| Circuit breaker / load shedding | Limit or reject fallback work when the database is unhealthy. | Protect the database from an uncontrolled request surge. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Cache Avalanche happens when many keys expire or become unavailable around the same time, sending a surge of cache misses to the database. TTL jitter spreads expiry times, while request coalescing, cache pre-warming, and circuit breakers help protect the database."
+- **Hinglish Quick Memory:** Jab bahut saari Redis keys ek hi time par expire hoti hain, toh requests ek saath MongoDB par pahunch sakti hain aur database overload ho sakta hai. TTL jitter har key ka expiry time thoda random karke is risk ko kam karta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
