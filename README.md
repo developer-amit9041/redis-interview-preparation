@@ -5,7 +5,7 @@ Redis interview questions and answers are separated into two files so the questi
 ## Files
 
 - **[Redis Interview Questions](./redis-interview-question.md)** — the complete 140-question list organized into 9 levels.
-- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q96, through “What Is Sharding in Redis?”
+- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q98, through “What Are Hash Slots in Redis Cluster?”
 
 ## Study Format
 
