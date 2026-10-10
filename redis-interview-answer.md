@@ -9791,6 +9791,226 @@ Amit
 - **English Pitch:** "To retrieve JSON stored as a Redis string, I use `GET` and then `JSON.parse()` to convert the returned string into a JavaScript object. With the RedisJSON module, I can retrieve a JSON document directly using `JSON.GET`."
 - **Hinglish Quick Memory:** "Redis se JSON string lane ke liye `GET` use karta hoon aur object banane ke liye `JSON.parse()` karta hoon. RedisJSON module use ho raha ho toh `JSON.GET` se document retrieve kar sakte hain."
 
+# 🚀 Question 107: How Do You Implement API Caching Using Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+**API caching using Redis** is a technique in which an application's API response is temporarily stored in Redis so that subsequent requests can retrieve the cached response instead of querying the database every time.
+
+In a Node.js and Express application, we typically check Redis first. If the cached data exists, we return it (**cache hit**). Otherwise, we fetch the data from MongoDB, store it in Redis with a Time-To-Live (TTL), and return the response (**cache miss**).
+
+## 🗣️ Answer in Hinglish
+
+Maan lo hamari MERN application mein `/api/products` API hai. Har request par MongoDB se products fetch karne ke bajaye, hum unka response Redis mein temporarily store kar sakte hain.
+
+1. Client `/api/products` par request bhejta hai.
+2. Node.js pehle Redis mein cached response check karta hai.
+3. **Cache hit:** Data Redis mein mil gaya, toh wahi response return kar dete hain.
+4. **Cache miss:** Redis mein data nahi mila, toh MongoDB se products fetch karte hain.
+5. Data ko Redis mein TTL ke saath store karke client ko return kar dete hain.
+
+Isse repeated requests ke liye database queries kam ho sakti hain aur API ki response time improve ho sakti hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+           Client Request
+                 |
+                 v
+          Node.js / Express
+                 |
+                 v
+           Check Redis
+                 |
+          +------+------+
+          |             |
+      Cache Hit      Cache Miss
+          |             |
+          v             v
+   Return Cached     Query MongoDB
+       Response          |
+                          v
+                    Store in Redis
+                      with TTL
+                          |
+                          v
+                    Return Response
+~~~
+
+## 💻 Practical Code Example — Node.js + Express + MongoDB + Redis
+
+### Step 1: Install packages
+
+~~~bash
+npm install express redis mongoose
+~~~
+
+### Step 2: Connect Redis
+
+`redis.js`
+
+~~~javascript
+const { createClient } = require("redis");
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redisClient.on("error", (error) => {
+  console.error("Redis error:", error.message);
+});
+
+async function connectRedis() {
+  if (!redisClient.isOpen) {
+    await redisClient.connect();
+  }
+}
+
+module.exports = { redisClient, connectRedis };
+~~~
+
+### Step 3: Implement API caching
+
+`routes/productRoutes.js`
+
+~~~javascript
+const express = require("express");
+const Product = require("../models/Product");
+const { redisClient } = require("../redis");
+
+const router = express.Router();
+
+router.get("/products", async (req, res, next) => {
+  // Include relevant query parameters in the cache key.
+  const category = String(req.query.category || "all");
+  const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+  const cacheKey = `api:products:${category}:page:${page}`;
+
+  // 1. Try Redis first.
+  try {
+    const cachedData = await redisClient.get(cacheKey);
+
+    if (cachedData) {
+      res.set("X-Cache", "HIT");
+      return res.json(JSON.parse(cachedData));
+    }
+  } catch (error) {
+    // Fail open: continue to MongoDB if Redis is unavailable.
+    console.error("Redis cache read failed:", error.message);
+  }
+
+  try {
+    // 2. Cache miss: fetch data from MongoDB.
+    const filter = category === "all" ? {} : { category };
+
+    const products = await Product.find(filter)
+      .skip((page - 1) * 10)
+      .limit(10)
+      .lean();
+
+    // 3. Cache the response for 60 seconds.
+    try {
+      await redisClient.set(cacheKey, JSON.stringify(products), {
+        EX: 60,
+      });
+    } catch (error) {
+      // The API can still return the database result.
+      console.error("Redis cache write failed:", error.message);
+    }
+
+    // 4. Return the response.
+    res.set("X-Cache", "MISS");
+    return res.json(products);
+  } catch (error) {
+    next(error);
+  }
+});
+
+module.exports = router;
+~~~
+
+### Step 4: Start the application
+
+~~~javascript
+const express = require("express");
+const mongoose = require("mongoose");
+const { connectRedis } = require("./redis");
+const productRoutes = require("./routes/productRoutes");
+
+async function startServer() {
+  await mongoose.connect(process.env.MONGO_URL);
+  await connectRedis();
+
+  const app = express();
+  app.use(express.json());
+  app.use("/api", productRoutes);
+
+  app.listen(3000, () => {
+    console.log("Server running on port 3000");
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Server startup failed:", error);
+  process.exit(1);
+});
+~~~
+
+### Step 5: Test the API
+
+Request:
+
+~~~http
+GET http://localhost:3000/api/products?category=electronics&page=1
+~~~
+
+First request:
+
+~~~http
+X-Cache: MISS
+~~~
+
+Products MongoDB se fetch honge aur Redis mein 60 seconds ke liye cache honge.
+
+Second request, 60 seconds ke andar:
+
+~~~http
+X-Cache: HIT
+~~~
+
+Agar cached key expire ya delete ho jaati hai, toh next request phir MongoDB se data fetch karke cache repopulate karegi.
+
+**Production note:** Query parameters validate karo, user-specific responses ko alag cache keys do, aur data update/delete operations ke baad relevant cache keys invalidate karo. Redis unavailable hone par application MongoDB se response dene ki koshish kar sakti hai.
+
+## 🔄 Cache Invalidation — Data Update Hone Par Kya Karein?
+
+MongoDB mein product update hone ke baad Redis mein old response TTL expire hone tak reh sakta hai. Isliye related cached keys ko invalidate karna important hai.
+
+~~~javascript
+await Product.findByIdAndUpdate(productId, updateData);
+
+// Deletes this exact cache key only.
+await redisClient.del("api:products:electronics:page:1");
+~~~
+
+Yeh command sirf us exact key ko delete karti hai. Agar same data ke multiple categories, pages ya filter combinations cached hain, toh un sab ko manage karna hoga. Production mein known keys, versioned keys, ya suitable invalidation strategy use karo; large production keyspace par `KEYS` command blindly use mat karo.
+
+## 📊 Important Concepts
+
+| Concept | Meaning |
+|---|---|
+| Cache hit | Redis mein response mil gaya |
+| Cache miss | Redis mein response nahi mila |
+| TTL | Cache kitni der tak valid rahega |
+| Cache invalidation | Stale data se bachne ke liye cached entry delete/update karna |
+| Cache-aside pattern | Application cache check karti hai; miss par database fetch karke cache populate karti hai |
+| Fail-open behavior | Redis fail hone par bhi database se response dene ki koshish karna |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I implement API caching in Express using the cache-aside pattern. The API checks Redis first and returns the cached response on a hit. On a miss, it fetches data from MongoDB, stores the result in Redis with a TTL, and returns it. I also handle Redis failures and invalidate relevant cache keys after data updates."
+- **Hinglish Quick Memory:** "API request par pehle Redis check karte hain. Cache hit par direct response, aur cache miss par MongoDB se data fetch karke TTL ke saath Redis mein store karte hain. Data update hone par relevant cache keys invalidate karte hain, taaki stale response na mile."
+
 ---
 
 *More answers will be added in question order, using this format.*
