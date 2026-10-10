@@ -4696,6 +4696,67 @@ Local `Map()` coordination works only within one Node.js process. With multiple 
 - **English Pitch:** "Prevent a Cache Stampede by deduplicating concurrent reads with request coalescing, coordinating refreshes across instances when needed, and refreshing hot keys before expiry. Stale-while-revalidate can also reduce database pressure when short-lived stale data is acceptable."
 - **Hinglish Quick Memory:** Ek hi hot key ke liye sabhi requests ko MongoDB hit mat karne do. Single process mein same in-flight Promise share karo; multiple servers mein shared coordination use kar sakte ho, aur hot keys ko expiry se pehle refresh kar sakte ho.
 
+# 🚀 Question 55: What Data Should NOT Be Cached in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+Avoid caching data in Redis when doing so creates unacceptable security or consistency risks, or when the data has little cache value because it is rarely read or changes too frequently.
+
+Do not cache raw passwords, payment card security codes (CVVs), or sensitive authentication secrets. Critical transactional values—such as the authoritative account balance or final inventory quantity during checkout—should be validated against the authoritative database or transaction system rather than trusted solely from a cache. Large, rarely accessed datasets and highly volatile values may also be poor cache candidates when the hit rate and performance benefit do not justify the memory cost.
+
+## 🗣️ Answer in Hinglish
+
+Har data ko Redis mein cache karna best practice nahi hai. Kuch data security risk, consistency requirement, ya low cache-hit value ki wajah se cache nahi karna chahiye:
+
+1. **Raw Passwords / Sensitive Auth Secrets:** Passwords, private credentials, aur secrets ko Redis mein plain text mein store nahi karna chahiye. Session/token caching ho toh proper security controls, expiry aur least-privilege access zaroori hain.
+2. **Payment Card CVV:** CVV jaise sensitive payment security data ko cache mein store nahi karna chahiye.
+3. **Critical Transactional Values:** Checkout ke final inventory verification, account balance, ya payment status ka authoritative decision sirf stale Redis value par depend nahi hona chahiye. Source-of-truth database/ledger se validate karo.
+4. **Highly Volatile Data:** Jo values bahut frequently change hoti hain, unka cache jaldi stale ho sakta hai aur hit ratio low ho sakta hai.
+5. **Large, Rarely Read Data:** Aisa heavy data jo bahut kam access hota hai, Redis RAM mein rakhne se cost badh sakti hai aur useful cache entries ke liye memory kam pad sakti hai.
+
+## 💻 Practical Code Example (Cache Only Safe, Useful Fields)
+
+~~~javascript
+// Avoid storing raw secrets or payment security data in Redis.
+// await redis.set(`user:${userId}`, JSON.stringify({
+//   password: user.password,
+//   creditCardCVV: payment.cvv
+// }));
+
+// Better: cache only the lightweight, non-sensitive fields needed for a profile view.
+const profileCachePayload = {
+  profileName: fetchedUser.name,
+  displayAvatarUrl: fetchedUser.avatarUrl,
+  userTierStatus: fetchedUser.accountTier
+};
+
+await redis.set(
+  `user-profile:${userId}`,
+  JSON.stringify(profileCachePayload),
+  { EX: 300 }
+);
+
+// Important checkout rule:
+// Read/validate inventory and payment state from the authoritative
+// transactional data source before committing the final operation.
+~~~
+
+## 📋 Cache Eligibility Strategy Matrix
+
+| Dataset Category | Cache Recommendation | Engineering Reason |
+|---|---|---|
+| Product listings / slow-changing catalog | Often a good candidate | Frequently read and can tolerate a defined staleness window. |
+| Non-sensitive profile display fields | Often a good candidate | Repeated reads can benefit from caching with a suitable TTL. |
+| Raw passwords / payment CVVs | Do not cache | Sensitive secret and payment-security risk. |
+| Critical account balance / final checkout inventory | Do not rely on cache as the source of truth | Requires authoritative validation and transactional safeguards. |
+| Highly volatile values | Evaluate carefully | Frequent changes may cause stale reads and a low hit rate. |
+| Large, rarely accessed archives | Usually poor candidates | Memory cost may outweigh the performance benefit. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Avoid caching raw passwords, CVVs, or sensitive secrets. Do not use Redis as the sole source of truth for critical transactional values. Highly volatile or rarely accessed large datasets may also be poor candidates when the freshness, hit rate, and memory cost do not justify caching."
+- **Hinglish Quick Memory:** Raw password aur CVV Redis mein store mat karo. Checkout inventory, balance, aur payment jaise critical decisions ke liye authoritative database/ledger validate karo. Jo data bahut jaldi change hota hai ya rarely read hota hai, uska cache-hit benefit evaluate karke hi Redis mein rakho.
+
 ---
 
 *More answers will be added in question order, using this format.*
