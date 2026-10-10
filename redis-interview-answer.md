@@ -8802,6 +8802,103 @@ Command output mein jo slot number milega, us slot ko own karne wala primary nod
 - **English Pitch:** "Redis Cluster distributes keys across 16,384 hash slots. Each primary node owns a subset of slots, and Redis routes a key's request to the node responsible for its slot. Replicas provide copies of primary data for availability."
 - **Hinglish Quick Memory:** "Redis Cluster mein 16,384 hash slots hote hain. Har primary kuch slots own karta hai. Redis key ka slot calculate karke request correct primary tak bhejta hai, aur replica primary ka data copy karta hai."
 
+# 🚀 Question 98: What Are Hash Slots in Redis Cluster?
+
+## 📝 Answer (English — Interview Definition)
+
+**Hash slots are logical partitions used by Redis Cluster to distribute keys across primary nodes.** Redis Cluster has 16,384 slots. For most keys, Redis calculates the slot using the CRC16 hash of the key, modulo 16,384. Each primary node owns a subset of slots, and keys mapping to those slots are stored on that node.
+
+Hash slots allow Redis Cluster to distribute and rebalance data without assigning every individual key manually.
+
+## 🗣️ Answer in Hinglish
+
+Hash slot ek **logical bucket ya partition** hai jiske through Redis Cluster decide karta hai ki key kis primary node par honi chahiye.
+
+Har key ke liye Redis:
+
+1. Key ka hash calculate karta hai.
+2. Hash ko use karke 0 se 16,383 ke beech slot number nikalta hai.
+3. Assigned slot-owning primary node par key store karta hai.
+
+Example ke liye `user:101`, `user:102` aur `product:55` ki keys alag-alag slots par map ho sakti hain. Slot number sirf key ke naam se guess nahi karna chahiye; Redis uski calculation karta hai.
+
+### Hash Tags Kya Hote Hain?
+
+Agar key ke naam mein `{...}` hota hai, toh Redis Cluster ke hash-slot calculation mein braces ke andar ka text use kiya jaata hai.
+
+Example:
+
+~~~text
+order:{101}:details
+order:{101}:items
+~~~
+
+Dono keys ka hash slot same hoga, kyunki dono mein hash tag `{101}` hai. Yeh useful hai jab multi-key operation ke liye keys ko same slot mein rakhna ho.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+Key: user:101
+      |
+      v
+ CRC16 hash calculation
+      |
+      v
+Hash slot = (hash value % 16384)
+      |
+      v
+Primary node that owns this slot
+      |
+      v
+Key stored on that node
+~~~
+
+Hash tag example:
+
+~~~text
+order:{101}:details ----+
+                        +---- Same hash slot
+order:{101}:items ------+
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### A. Calculate a key's hash slot
+
+~~~bash
+redis-cli -c CLUSTER KEYSLOT user:101
+~~~
+
+Redis slot number return karega, jo `0` se `16383` ke beech hoga.
+
+### B. Check hash tags
+
+~~~bash
+redis-cli -c CLUSTER KEYSLOT order:{101}:details
+redis-cli -c CLUSTER KEYSLOT order:{101}:items
+~~~
+
+Dono commands same slot number return karengi.
+
+Hash tags ka use thoughtfully karna chahiye. Agar bahut saari keys ek hi hash tag use karti hain, toh saari keys same slot aur us slot ke primary par concentrate ho sakti hain—isse load imbalance ho sakta hai.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Total slots | 16,384 |
+| Slot range | 0–16,383 |
+| Purpose | Keys ko cluster ke primary nodes mein distribute karna |
+| Slot calculation | CRC16-based calculation modulo 16,384 |
+| Slot owner | Har slot ek primary node ko assigned hota hai |
+| Hash tags | Related keys ko same slot mein map kar sakte hain |
+| Why important? | Data distribution, routing aur multi-key operations |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Hash slots are the logical partitions used by Redis Cluster to distribute keys. Redis calculates a key's slot using CRC16 modulo 16,384, and each primary node owns a subset of slots. Hash tags let developers map related keys to the same slot for supported multi-key operations."
+- **Hinglish Quick Memory:** "Hash slots Redis Cluster ke logical buckets hain. Total 16,384 slots hote hain. Redis key ka slot calculate karta hai aur us slot ke owner primary par key rakhta hai. `{101}` jaise hash tags related keys ko same slot mein rakhne mein help karte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
