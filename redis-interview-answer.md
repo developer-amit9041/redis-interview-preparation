@@ -522,6 +522,253 @@ MERN application mein MongoDB aur Redis ko different responsibilities de sakte h
 
 ---
 
+# 🚀 Question 5: What are the Different Data Types in Redis?
+
+## 📝 Answer (English)
+
+Redis is more than a simple key-value store; it is an **in-memory data structures server**. It supports multiple data types so applications can store and process different kinds of data efficiently. Common data types include **Strings, Hashes, Lists, Sets, Sorted Sets, Streams, Bitmaps, Bitfields, and HyperLogLogs**. Each type is suited to different operations, such as caching values, storing object-like fields, maintaining leaderboards, or processing event records.
+
+## 🗣️ Answer (Hinglish)
+
+Redis mein different types ka data store aur manage karne ke liye multiple built-in data types hote hain. Simple way mein yaad rakho:
+
+- **String:** Simple value, token, ya counter store karna ho.
+- **Hash:** User object jaisi fields aur values store karni hon.
+- **List:** Ordered items chahiye aur duplicates allowed hon.
+- **Set:** Unique items ka collection chahiye, duplicates nahi.
+- **Sorted Set (ZSet):** Score ke according ranking chahiye.
+- **Stream:** Events ko append-only log ki tarah record aur process karna ho.
+- **Bitmap / Bitfield:** Compact bit-level flags ya counters manage karne hon.
+- **HyperLogLog:** Bahut bade collection mein unique items ki approximate count nikalni ho.
+
+## 📊 Core Data Types Overview
+
+| Data type | Primary use case | Practical example |
+|---|---|---|
+| **String** | Simple value caching and atomic counters | Cached API response, token, page-view count |
+| **Hash** | Object-like fields and values | User profile fields such as name and email |
+| **List** | Ordered collection; can support simple queue patterns | Recent activity, task list |
+| **Set** | Unordered unique elements | Unique visitor IDs, tags |
+| **Sorted Set (ZSet)** | Unique members ordered by score | Gaming leaderboard, trending products |
+| **Stream** | Append-only event log and consumer-group processing | Order events or service events |
+| **Bitmap / Bitfield** | Compact bit-level flags and integer fields | Daily login indicators |
+| **HyperLogLog** | Approximate distinct counting with low memory usage | Estimating unique visitors |
+
+## 💻 Practical Example — Node.js + Redis
+
+### Step 1: Install the package
+
+```bash
+npm install redis
+```
+
+### Step 2: Create `app.js`
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+
+  await redis.connect();
+
+  // 1. String — simple key-value pair
+  await redis.set("username", "Amit");
+
+  // 2. Hash — object-like fields
+  await redis.hSet("user:1", {
+    name: "Amit",
+    email: "amit@example.com",
+  });
+
+  // 3. List — ordered values; duplicates are allowed
+  await redis.rPush("tasks", ["Learn Redis", "Practice Node.js"]);
+
+  // 4. Set — unique values only
+  await redis.sAdd("skills", ["Node.js", "React", "Node.js"]);
+
+  // 5. Sorted Set — each member has a score
+  await redis.zAdd("leaderboard", [
+    { score: 100, value: "Amit" },
+    { score: 200, value: "Rahul" },
+  ]);
+
+  // Read the stored values
+  console.log("String:", await redis.get("username"));
+  console.log("Hash:", await redis.hGetAll("user:1"));
+  console.log("List:", await redis.lRange("tasks", 0, -1));
+  console.log("Set:", await redis.sMembers("skills"));
+  console.log(
+    "Sorted Set:",
+    await redis.zRangeWithScores("leaderboard", 0, -1)
+  );
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+**Prerequisite:** Local Redis server `localhost:6379` par running hona chahiye.
+
+### 🔍 Code kaise work karta hai?
+
+1. `set()` simple String value store karta hai.
+2. `hSet()` Hash ke andar named fields store karta hai.
+3. `rPush()` List ke end mein items add karta hai.
+4. `sAdd()` Set mein unique members add karta hai; duplicate members repeat nahi hote.
+5. `zAdd()` Sorted Set mein score ke saath members store karta hai.
+6. `get()`, `hGetAll()`, `lRange()`, `sMembers()`, aur `zRangeWithScores()` values read karte hain.
+
+## 🔄 Real-World MERN Project Mapping
+
+```text
+             [ MERN E-Commerce Backend ]
+                         |
+       +-----------------+-----------------+
+       |                 |                 |
+       v                 v                 v
+   [ STRINGS ]        [ HASHES ]       [ SORTED SETS ]
+   Product cache      Profile fields   Product/user ranking
+       |                 |                 |
+       +-----------------+-----------------+
+       |                 |                 |
+       v                 v                 v
+    [ LISTS ]          [ SETS ]         [ STREAMS ]
+    Recent activity   Unique tags      Order/event log
+```
+
+## ⏱️ Easy Revision — 1-Minute Interview Summary
+
+- **String** = simple value or counter.
+- **Hash** = object-like fields.
+- **List** = ordered elements; duplicates allowed.
+- **Set** = unique elements.
+- **Sorted Set** = members ranked by score.
+- **Stream** = append-only event entries.
+- **Bitmap/Bitfield** = compact bit-level operations.
+- **HyperLogLog** = approximate count of unique elements.
+
+**Interview answer to remember:** “Redis supports Strings, Hashes, Lists, Sets, Sorted Sets, Streams, Bitmaps, Bitfields, and HyperLogLogs. Each structure is optimized for a different task, such as caching, object-like data, ordered lists, uniqueness, ranking, event processing, or approximate distinct counting.”
+
+# 🚀 Question 6: What is the Difference Between Redis and MongoDB?
+
+## 📝 Answer (English)
+
+Redis is an in-memory data store commonly used for caching, sessions, counters, and real-time operations. MongoDB is a persistent, document-oriented NoSQL database commonly used to store and query primary application data.
+
+The core difference is their typical role and data model: Redis provides fast access through specialized data structures and commands, while MongoDB stores BSON documents in collections and provides flexible queries, indexes, and aggregation pipelines. Redis can also persist data using RDB and AOF, and MongoDB also uses memory for caching; neither system should be described as “RAM only” or “disk only.” In many production architectures, Redis and MongoDB complement each other.
+
+## 🗣️ Answer (Hinglish)
+
+Redis aur MongoDB dono NoSQL technologies hain, lekin application architecture mein inka typical role alag hota hai:
+
+- **MongoDB — Primary Database:** User profiles, products, orders, invoices, aur core business records ko documents ke form mein store aur query karne ke liye use hota hai.
+- **Redis — Fast Data Store / Cache:** Frequently accessed data ki copy, session state, counters, rate limiting, aur real-time features ke liye use hota hai.
+
+MERN example mein MongoDB core application data ka source of truth reh sakta hai, jabki Redis frequently read hone wale data ko cache karke response time aur repeated database reads ko reduce kar sakta hai.
+
+## 📊 Core Comparison Table
+
+| Feature | Redis | MongoDB |
+|---|---|---|
+| **Typical role** | Cache, sessions, counters, real-time data; can also be a database | Primary document database for application data |
+| **Data model** | Key-value access plus data structures such as Hashes, Lists, Sets, and Sorted Sets | BSON documents grouped into collections |
+| **Storage and persistence** | Primarily memory-based access; persistence is configurable with RDB/AOF | Persistent document storage with memory caching as part of normal operation |
+| **Access pattern** | Keys and data-structure-specific commands | Rich document queries, indexes, and aggregation pipelines |
+| **Typical strength** | Very low-latency access to supported operations | Flexible querying and managing application documents |
+| **Common use cases** | Cache, sessions, counters, rate limiting, leaderboards, messaging | User data, product catalog, orders, invoices, business records |
+
+## 💻 Practical MERN Example — Cache-Aside Pattern
+
+Redis aur MongoDB ko ek saath use karne ka common pattern **Cache-Aside** hai: pehle Redis check karo; cache miss par MongoDB se data fetch karo, phir result Redis mein save karo.
+
+```javascript
+const Product = require("./models/Product");
+
+async function getProductDetails(productId, redisClient) {
+  const cacheKey = `product:${productId}`;
+
+  // Step 1: Check Redis cache first.
+  const cachedProduct = await redisClient.get(cacheKey);
+
+  if (cachedProduct !== null) {
+    console.log("Cache hit: returning product from Redis");
+    return JSON.parse(cachedProduct);
+  }
+
+  // Step 2: Cache miss — fetch the source data from MongoDB.
+  console.log("Cache miss: fetching product from MongoDB");
+  const product = await Product.findById(productId);
+
+  // Step 3: Cache found results for 5 minutes.
+  if (product) {
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(product),
+      { EX: 300 }
+    );
+  }
+
+  return product;
+}
+```
+
+**How it works:**
+
+1. API Redis mein `product:<id>` key search karti hai.
+2. Cache hit ho toh cached product return hota hai.
+3. Cache miss ho toh MongoDB se product fetch hota hai.
+4. Product milne par uski copy Redis mein 300 seconds (5 minutes) ke liye store hoti hai.
+5. MongoDB mein product update hone par related cache key invalidate ya refresh karni chahiye, warna stale data mil sakta hai.
+
+## 🔄 Real-World Architecture Workflow
+
+```text
+                  [ Client Request ]
+                         |
+                         v
+                 [ Node.js Backend ]
+                         |
+                         v
+                  [ Check Redis ]
+                         |
+               +---------+---------+
+               |                   |
+               v                   v
+          [ Cache Hit ]       [ Cache Miss ]
+               |                   |
+               |                   v
+               |             [ MongoDB ]
+               |                   |
+               |                   v
+               |            [ Save in Redis ]
+               |                   |
+               +---------+---------+
+                         |
+                         v
+                 [ Return Response ]
+```
+
+**Important clarification:** Redis persistence configure ki ja sakti hai, aur MongoDB indexes/caching ke saath fast query performance de sakta hai. Exact architecture workload, durability needs, query requirements, and operational constraints par depend karta hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- Redis ek in-memory data store hai jo caching aur real-time operations ke liye commonly use hota hai.
+- MongoDB ek persistent document-oriented database hai jo flexible queries, indexes aur aggregation support karta hai.
+- Redis data ko persist bhi kar sakta hai; MongoDB bhi frequently accessed data ko memory mein cache kar sakta hai.
+- MERN application mein MongoDB ko primary data store aur Redis ko cache layer ke roop mein saath use karna common pattern hai.
+- Cache-Aside mein pehle Redis check hota hai; miss par MongoDB se fetch karke cache populate kiya jata hai.
+- MongoDB updates ke baad Redis invalidation/refresh plan karna zaroori hai.
+
+**Interview answer to remember:** “MongoDB is a persistent document database for primary application data, while Redis is an in-memory data store commonly used for caching and real-time operations. In a MERN application, I would often use MongoDB as the source of truth and Redis to reduce repeated reads and improve response times.”
+
+---
+
 ---
 
 *More answers will be added in question order, using this format.*
