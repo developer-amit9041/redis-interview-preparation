@@ -11906,6 +11906,130 @@ High availability aur persistence loss ko completely eliminate nahi karte. Actua
 - **English Pitch:** "If Redis goes down, the impact depends on its role in the application. If it is only a cache, I can fall back to the primary database, with appropriate timeouts and protection against database overload. If Redis supports sessions, rate limiting, queues, or distributed locks, I need a feature-specific failure strategy. Monitoring, reconnection, and high availability can help with recovery."
 - **Hinglish Quick Memory:** "Redis down hone par impact uske use case par depend karta hai. Cache ke liye MongoDB fallback use kar sakte hain, lekin latency aur database load badh sakta hai. Sessions, rate limiting, queues aur locks ke liye safe failure strategy chahiye. Reconnection, monitoring aur high availability recovery mein help karte hain."
 
+# 🚀 Question 119: Should an Application Fail If Redis Is Unavailable?
+
+## 📝 Answer (English — Interview Definition)
+
+**An application should not automatically fail completely when Redis becomes unavailable.** Its behavior should depend on Redis's role in the application. If Redis is used only as a cache, the application can often fall back to the primary database. If Redis provides a critical function, such as session management, distributed locking, or rate limiting, the application should handle the failure according to its security and consistency requirements.
+
+A robust application uses bounded timeouts, error handling, monitoring, and appropriate fallback or fail-safe behavior.
+
+## 🗣️ Answer in Hinglish
+
+Redis unavailable hone par application ko blindly crash nahi karna chahiye. Pehle dekhna hoga ki Redis hamare project mein kis kaam ke liye use ho raha hai.
+
+### Case 1: Redis sirf caching ke liye hai
+
+Agar Redis mein product ya user data cache kiya hua hai aur Redis down ho jata hai, toh application MongoDB se data fetch kar sakti hai. Isse application chalti rahegi, lekin database par load badh sakta hai.
+
+### Case 2: Redis session management ke liye hai
+
+Agar user sessions Redis mein stored hain aur Redis unavailable ho jata hai, toh authentication ko blindly bypass nahi karna chahiye. Protected request ko temporarily reject karna ya controlled `503 Service Unavailable` return karna safer ho sakta hai.
+
+### Case 3: Redis critical operation ke liye hai
+
+Agar Redis distributed lock ya kisi critical coordination workflow ko manage karta hai, toh Redis failure ke baad operation continue karna data inconsistency ya duplicate processing ka risk create kar sakta hai.
+
+**Interview mein main point:** Optional cache ke liye graceful fallback; critical dependency ke liye safe failure.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+             Node.js Application
+                     |
+                     v
+                  Redis
+                     |
+              Is Redis available?
+                 /         \
+               Yes          No
+                |            |
+                v            v
+         Use cached data   Check Redis role
+                              |
+                    +---------+---------+
+                    |                   |
+                 Cache              Critical role
+                    |                   |
+                    v                   v
+              MongoDB fallback     Safe error /
+              if appropriate       controlled 503
+~~~
+
+## 💻 Practical Example — Node.js + Redis + MongoDB
+
+Suppose MERN application mein products Redis cache se read hote hain. Redis down hone par MongoDB fallback use karenge.
+
+~~~javascript
+async function getProduct(productId) {
+  const cacheKey = `product:${productId}`;
+  let redisAvailable = true;
+
+  // 1. Try Redis cache
+  try {
+    const cachedProduct = await redis.get(cacheKey);
+
+    if (cachedProduct) {
+      return JSON.parse(cachedProduct);
+    }
+  } catch (error) {
+    redisAvailable = false;
+    console.error("Redis unavailable; falling back to MongoDB");
+  }
+
+  // 2. Fetch from MongoDB if cache misses or Redis fails
+  const product = await Product.findById(productId).lean();
+
+  // 3. Refill cache only if Redis was reachable
+  if (product && redisAvailable) {
+    try {
+      await redis.set(cacheKey, JSON.stringify(product), {
+        EX: 60
+      });
+    } catch (error) {
+      console.error("Could not update Redis cache");
+    }
+  }
+
+  return product;
+}
+~~~
+
+### Code kaise work karta hai?
+
+1. Application pehle Redis se product read karti hai.
+2. Cache hit hone par cached product return hota hai.
+3. Cache miss ya Redis read fail hone par MongoDB se data fetch hota hai.
+4. Redis available tha toh fetched product cache mein store karne ki koshish hoti hai.
+5. Redis unavailable hone par cache write skip ho jaati hai, lekin MongoDB se product milne par request serve ho sakti hai.
+
+**Production note:** Redis commands ke liye bounded timeout aur connection error handling configure karo. Redis down hone par bahut saari requests MongoDB par ek saath aa sakti hain, isliye database capacity aur fallback load bhi handle karna zaroori hai.
+
+## 📊 Important Decision Table
+
+| Redis ka use | Redis unavailable ho toh behavior |
+|---|---|
+| Product/data cache | Database fallback, if safe |
+| Session management | Authentication bypass na karo; controlled error return karo |
+| Rate limiting | Security policy ke according fail-open ya fail-closed choose karo |
+| Distributed lock | Coordination guarantee nahi hai toh critical operation rokna safer ho sakta hai |
+| Background queue | Jobs ko silently discard na karo; durable recovery mechanism use karo |
+| Optional live notifications | Feature temporarily degrade ho sakta hai |
+
+### Fail-Open vs Fail-Closed
+
+| Strategy | Meaning | Example |
+|---|---|---|
+| Fail-open | Dependency down ho toh operation ko allow karna | Low-risk cache fallback |
+| Fail-closed | Dependency down ho toh operation reject karna | Sensitive operation mein required security check unavailable ho |
+
+Dono strategies ka use case ke according decision lena chahiye. Har failure mein fail-open ya har failure mein fail-closed automatically correct nahi hota.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "An application should handle Redis failure gracefully rather than crashing automatically. For caching, I would fall back to the primary database where appropriate. For critical functions such as authentication or distributed coordination, I would use safe failure behavior. I would also configure timeouts, monitoring, error handling, and fallback strategies."
+- **Hinglish Quick Memory:** "Redis down hone par app ko blindly crash nahi karna chahiye. Cache ke case mein MongoDB fallback kar sakte hain, lekin sessions, locks aur security checks ke case mein safe failure chahiye. Timeouts, monitoring aur database par extra load handle karna bhi important hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
