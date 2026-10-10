@@ -6487,6 +6487,114 @@ Yahan `XADD` event ko Stream mein add karta hai, aur `XRANGE` stored entries rea
 - **English Pitch:** "Redis Pub/Sub does not store messages. It broadcasts messages to currently connected subscribers, and offline subscribers can miss them. For message persistence, history, and replay, I would use Redis Streams or a suitable durable messaging system."
 - **Hinglish Quick Memory:** "Redis Pub/Sub messages store nahi karta, sirf active subscribers ko real-time mein deliver karta hai. Offline subscriber purana message miss kar sakta hai. Messages ko store aur baad mein read karna ho toh Redis Streams use kar sakte hain."
 
+# 🚀 Question 77: What Is Redis Streams?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Streams is a Redis data structure that stores an ordered sequence of messages or events.** Each entry has a unique ID and contains one or more field-value pairs. Applications can append entries, read message history, and use consumer groups to distribute processing across multiple consumers.
+
+Redis Streams is useful for event processing, activity logs, background jobs, and applications that need to read messages later.
+
+## 🗣️ Answer in Hinglish
+
+Redis Streams ek aisa Redis data structure hai jo messages ko store karta hai, taaki unhe baad mein bhi read aur process kar sakein.
+
+Redis Pub/Sub mein subscriber offline ho toh message miss ho sakta hai. Lekin Redis Streams mein message stream ke andar entry ke roop mein store hota hai, aur consumer baad mein usse read kar sakta hai—jab tak entry stream mein available hai.
+
+Har stream entry ke paas ek unique ID hoti hai, aur usmein fields aur values hoti hain.
+
+**Example:** E-commerce application mein jab order create hota hai, toh hum `order_stream` mein `order_created` event store kar sakte hain. Notification Service ya Analytics Service baad mein us event ko read karke process kar sakti hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+          Order Service
+                |
+                | XADD order_stream
+                v
+        +-------------------+
+        |   Redis Stream    |
+        |-------------------|
+        | order_created     |
+        | payment_completed |
+        | order_shipped      |
+        +-------------------+
+                |
+          Read / Consume
+                |
+         +------+------+
+         |             |
+         v             v
+ Notification      Analytics
+   Service           Service
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Add a message to the stream
+
+~~~bash
+redis-cli XADD order_stream "*" event "order_created" orderId "101"
+~~~
+
+- `XADD` stream mein entry add karta hai.
+- `order_stream` stream ka naam hai.
+- `*` Redis ko entry ID generate karne ke liye kehta hai.
+- `event` aur `orderId` fields hain, aur unke baad unki values hain.
+
+Redis generated entry ID return karega, jaise:
+
+~~~text
+"1760000000000-0"
+~~~
+
+Yeh sample ID hai; actual ID Redis generate karta hai.
+
+### Step 2: Read stored messages
+
+~~~bash
+redis-cli XRANGE order_stream - +
+~~~
+
+Yeh stream ki available entries ko oldest se newest order mein read karta hai.
+
+### Step 3: Read new messages as they arrive
+
+~~~bash
+redis-cli XREAD BLOCK 0 STREAMS order_stream $
+~~~
+
+Yeh command naye messages ka wait karti hai. `$` ka matlab hai current end se aage aane wali entries ko read karna. Is command ko run karne ke baad doosre terminal se naya `XADD` karo, tab nayi entry mil sakti hai.
+
+**Note:** Redis Streams entries ko stream mein store karta hai, lekin unka kitne time tak rehna guaranteed hai, yeh trimming/deletion aur Redis persistence configuration par depend karta hai.
+
+## 📊 Important Redis Streams Commands
+
+| Command | Purpose |
+|---|---|
+| `XADD` | Stream mein nayi entry add karta hai. |
+| `XRANGE` | Stored entries ko ID range ke according read karta hai. |
+| `XREAD` | Stream entries read karta hai; new entries ka wait bhi kar sakta hai. |
+| `XLEN` | Stream mein currently present entries ki count deta hai. |
+| `XGROUP CREATE` | Consumer group create karta hai. |
+| `XREADGROUP` | Consumer group ke through messages read karta hai. |
+| `XACK` | Successfully process ki gayi entry ko acknowledge karta hai. |
+
+### Redis Pub/Sub vs Redis Streams
+
+| Feature | Redis Pub/Sub | Redis Streams |
+|---|---|---|
+| Message storage | Messages store nahi hote | Entries stream mein store hoti hain |
+| Message history | Available nahi | Available, jab tak entries retained hain |
+| Offline consumer | Message miss kar sakta hai | Baad mein stored entry read kar sakta hai |
+| Consumer groups | Nahi | Haan |
+| Best use case | Real-time broadcasting | Stored events aur message processing |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Streams is a Redis data structure that stores an ordered log of messages. Each entry has a unique ID and field-value pairs. It supports reading historical entries and consumer groups for distributed message processing, making it useful for event-driven applications and background tasks."
+- **Hinglish Quick Memory:** "Redis Streams messages ko entries ke form mein store karta hai. Har entry ki unique ID hoti hai. Hum `XADD` se message add, `XRANGE` se history read, aur consumer groups se messages process kar sakte hain. Pub/Sub se main difference hai ki Streams stored messages ko baad mein read karne deta hai, jab tak entries available hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
