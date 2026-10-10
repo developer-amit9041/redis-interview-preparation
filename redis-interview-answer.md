@@ -2592,6 +2592,161 @@ await redis.expire("product:101", 300);
 - **English Pitch:** "The EXPIRE command sets or updates a seconds-based TTL on an existing Redis key. At the Redis command level, it returns 1 when the expiration is applied and 0 when the key does not exist. It can manage key lifetimes for Redis Strings, Hashes, Lists, Sets, and Sorted Sets."
 - **Hinglish Quick Memory:** EXPIRE ka kaam pehle se existing Redis key par timeout lagana hai. Key mil jaaye aur expiration apply ho, toh Redis command 1 return karta hai; key missing ho, toh 0 return hota hai.
 
+# 🚀 Question 28: What Is TTL in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+The TTL (Time To Live) command in Redis is an inspection operation used to evaluate the remaining lifespan of a key before it undergoes automatic expiration and erasure.
+
+It measures the remaining lifetime strictly in seconds. In production architectures, TTL is highly valuable for real-time diagnostics, performance monitoring, and cache freshness verification. Understanding its specific integer return codes is crucial for debugging cluster states, as Redis uses distinct negative numbers to indicate whether a key is persistent or entirely absent from the memory pool.
+
+## 🗣️ Answer in Hinglish
+
+Bhai, TTL ka full form hota hai Time To Live. Yeh ek simple inspection command hai jo yeh check karke batati hai ki kisi key ke automatic delete (expire) hone mein kitne seconds baaki hain.
+
+~~~text
+Step 1: SET username "Amit" EX 60   ──► (Timer start: 60 seconds)
+Step 2: [ 20 seconds bit chuke hain ]
+Step 3: TTL username                ──► Returns roughly: 40
+~~~
+
+## ⚠️ Interview Special: TTL Response Matrix
+
+Interview mein jab TTL command ke return parameters puche jayein, toh yeh 3 explicit integers zarur bolna:
+
+- **Positive Number (e.g., 45):** Key memory mein active hai aur uski deletion mein roughly 45 seconds baaki hain.
+- **-1:** Target key memory mein present hai, lekin uspar koi expiration nahi lagaya gaya hai (persistent key).
+- **-2:** Target key memory mein exist nahi karti (ya toh woh kabhi bani nahi, ya expire hokar delete ho chuki hai).
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. Core data token save karna exactly 1 minute ke countdown window par
+  await redis.set("username", "Amit", { EX: 60 });
+
+  // 2. RAM se real-time remaining countdown value read karna
+  const remainingLife = await redis.ttl("username");
+  console.log("Remaining active lifecycle window:", remainingLife, "seconds");
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Dynamic Cache Health Audits)
+
+MERN stack analytics dashboard pipelines mein, agar hume check karna ho ki active session cache kitni der mein invalid hone wala hai:
+
+~~~javascript
+// Product information structure tracking checks
+const cacheCountdown = await redis.ttl("product:101");
+
+if (cacheCountdown > 0 && cacheCountdown < 30) {
+  console.log("⚠️ Alert: Cache content expiring in less than 30 seconds!");
+}
+~~~
+
+## 📋 Diagnostic Commands Summary Table
+
+| Inspection Command | Structural Metric | Production Execution Outcome |
+|---|---|---|
+| TTL key | Seconds | Returns remaining seconds or structural codes (-1/-2). |
+| PTTL key | Milliseconds | High-precision timing analysis for micro-caching. |
+| EXPIRE key 60 | Absolute action | Injects or updates a 60-second lifespan into an existing key. |
+| PERSIST key | Absolute action | Removes any active countdown timer, making data permanent. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "The Redis TTL command evaluates the remaining seconds before a key's automatic expiration. It returns the countdown integer, -1 for a persistent key without expiry, and -2 if the key does not exist or has already expired."
+- **Hinglish Quick Memory:** TTL batata hai ki key ki life kitni baaki hai seconds ke hisab se. Agar result positive digit hai toh countdown chal raha hai, -1 ka matlab key par expiry nahi hai, aur -2 ka matlab key missing ya expired hai.
+
+---
+
+# 🚀 Question 29: What Is DEL in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+The DEL command in Redis is an operation used to remove one or more specified keys along with their associated data from the keyspace.
+
+It behaves as a bulk deletion tool, accepting multiple key arguments in a single execution line and returning the count of keys that were successfully deleted. In web application workflows, DEL is commonly used for cache invalidation. When the primary persistent database changes, DEL removes the corresponding stale cache values so subsequent reads can repopulate them with fresh data.
+
+## 🗣️ Answer in Hinglish
+
+Redis ka DEL command kisi bhi existing key (aur uske andar ke data) ko memory se completely saaf (delete) karne ke liye use hota hai.
+
+~~~text
+Syntax: DEL <key1> [key2 ...]
+
+Example: DEL user:session:101
+~~~
+
+### 💡 Key Characteristics
+
+- **Bulk Execution:** Aap ek hi command mein multiple keys pass kar sakte ho, jaise DEL key1 key2 key3.
+- **Integer Feedback:** Response batata hai ki kitni keys actually delete hui. Agar koi key pehle se exist nahi karti, toh woh deleted count mein include nahi hoti.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // Test setup data write
+  await redis.set("username", "Amit");
+
+  // 1. DEL command se key remove karna aur count output check karna
+  const successfullyRemoved = await redis.del("username");
+  console.log("Total unique records purged from RAM:", successfullyRemoved); // Output: 1
+
+  // 2. Cross-verify post deletion query state
+  const fetchAttempt = await redis.get("username");
+  console.log("Query response for deleted element:", fetchAttempt); // Output: null
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Cache Invalidation Event)
+
+MERN stack apps mein jab Admin dashboard par kisi product ki price change karta hai, toh stale/purana data users ko na dikhe, isliye DEL command ka implementation is tarah kiya jata hai:
+
+~~~javascript
+// Step 1: Execute primary source database update via Mongoose
+await Product.findByIdAndUpdate(productId, { price: 45000 });
+
+// Step 2: Immediate cache invalidation event to remove outdated data
+await redis.del(`product:${productId}`);
+~~~
+
+**⚠️ Production Architecture Alert:** Agar MongoDB ka price update successful ho jata hai par network failure ke wajah se redis.del() fail ho jaye, toh client dashboard par purana (stale) data dikh sakta hai. Isse cache staleness kehte hain. Production systems mein retries, reliable event handling, ya cache invalidation strategies se is risk ko control kiya ja sakta hai.
+
+## 📋 Memory Cleanup Alternatives Matrix
+
+| Command | Execution Mode | Structural Memory Performance Impact |
+|---|---|---|
+| DEL key | Deletes the key as part of the command | Very large values may require substantial work on the Redis main thread, depending on the data type and configuration. |
+| UNLINK key | Removes key from the keyspace immediately; memory reclamation is performed asynchronously | Useful for large values because freeing memory can happen in background threads. |
+| EXISTS key | Inspection only | Checks whether a key exists before running other operations. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "The Redis DEL command removes one or more specified keys and returns the number of keys deleted. It is commonly used for cache invalidation after primary database records change."
+- **Hinglish Quick Memory:** DEL command Redis keyspace se ek ya multiple keys delete karta hai aur batata hai kitni keys delete hui. Cache invalidation ke liye yeh common choice hai; large data structures ko remove karne ke case mein UNLINK bhi consider kar sakte hain.
+
 ---
 
 *More answers will be added in question order, using this format.*
