@@ -10612,6 +10612,248 @@ Logout par server-side session destroy hota hai aur browser cookie clear hoti ha
 - **English Pitch:** "I implement Redis session management in Express using `express-session` and `connect-redis`. After authenticating a user, the server stores the user's ID in a session held in Redis, while the browser receives a session ID cookie. On future requests, Express loads the session from Redis. I regenerate the session ID after login, configure secure cookie settings and expiration, and destroy the session on logout."
 - **Hinglish Quick Memory:** "Express mein `express-session` ke saath `connect-redis` use karte hain. Login ke baad session data Redis mein save hota hai aur browser ko session ID cookie milti hai. Next request par Express Redis se session read karta hai. Secure cookies, TTL, login ke baad session regenerate karna aur logout par session destroy karna important hai."
 
+# 🚀 Question 111: How Do You Store JWT/Session Data in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis can store **server-side session data, session IDs, refresh-token records, and JWT revocation information** with expiration using TTL.
+
+For traditional session-based authentication, the browser stores a session ID while Redis stores the associated session data. For JWT-based authentication, the access token is usually validated using its signature and expiry without storing the full token in Redis. Redis can optionally store a token's `jti` in a revocation list with a TTL until token expiration, or maintain refresh-token/session records to support logout and session management.
+
+## 🗣️ Answer in Hinglish
+
+JWT aur session ka data Redis mein handle kar sakte hain, lekin dono ki approach alag hoti hai.
+
+**A. Session-based authentication**
+
+- User login karta hai.
+- Express ek session ID generate karta hai.
+- Session data Redis mein store hota hai.
+- Browser ko session ID cookie milti hai.
+- Next request par Express session ID ki help se Redis se session data read karta hai.
+
+**B. JWT-based authentication**
+
+- Server JWT generate karke client ko deta hai.
+- Har request par JWT ki signature aur expiry validate hoti hai.
+- JWT ko har request ke liye Redis mein save karna mandatory nahi hai.
+- Logout/revocation ke liye Redis mein token ka unique `jti` store kar sakte hain, aur us entry ko token expiry tak TTL de sakte hain.
+- Refresh tokens ko bhi server-side records ke through manage aur revoke kiya ja sakta hai.
+
+**Interview point:** Session data ko Redis mein store karna aur JWT ko Redis mein store karna same cheez nahi hai.
+
+## 🏗️ Architecture Diagram
+
+### Session-based authentication
+
+~~~text
+Browser
+  |
+  | Cookie: session ID
+  v
+Express.js
+  |
+  | Read session by ID
+  v
+Redis: session ID -> session data
+  |
+  v
+Authenticated request
+~~~
+
+### JWT-based authentication with revocation
+
+~~~text
+Client sends JWT
+       |
+       v
+Express verifies signature + expiry
+       |
+       v
+Check Redis revocation entry by jti
+      /        \
+  Revoked    Not revoked
+     |           |
+     v           v
+   Reject      Continue
+~~~
+
+## 💻 Practical Code Example — Node.js + Redis
+
+### A. Store sessions in Redis with Express
+
+Install the required packages:
+
+~~~bash
+npm install express express-session redis connect-redis
+~~~
+
+Example setup:
+
+~~~javascript
+const express = require("express");
+const session = require("express-session");
+const { createClient } = require("redis");
+const { RedisStore } = require("connect-redis");
+
+const app = express();
+
+async function startServer() {
+  const redisClient = createClient({
+    url: process.env.REDIS_URL,
+  });
+
+  redisClient.on("error", (err) => {
+    console.error("Redis error:", err);
+  });
+
+  await redisClient.connect();
+
+  app.use(
+    session({
+      store: new RedisStore({
+        client: redisClient,
+        prefix: "sess:",
+      }),
+      secret: process.env.SESSION_SECRET,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 30 * 60 * 1000, // 30 minutes
+      },
+    })
+  );
+
+  app.post("/login-demo", (req, res) => {
+    // Demo only: a real login must verify credentials first.
+    req.session.user = {
+      id: "user123",
+      role: "user",
+    };
+
+    res.json({ message: "Session created" });
+  });
+
+  app.get("/profile-demo", (req, res) => {
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    res.json({ user: req.session.user });
+  });
+
+  app.post("/logout", (req, res, next) => {
+    req.session.destroy((err) => {
+      if (err) return next(err);
+
+      res.clearCookie("connect.sid");
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  app.listen(3000, () => {
+    console.log("Server listening on port 3000");
+  });
+}
+
+startServer().catch(console.error);
+~~~
+
+**How it works:** `connect-redis` uses Redis as the session store. Express sends the browser a session-ID cookie; Redis stores the session data under a key using the configured prefix. The cookie name shown in the logout example is Express Session's default, `connect.sid`.
+
+Production note: use a strong secret from environment configuration, HTTPS, secure cookie settings, credential verification, and session ID regeneration after login to help prevent session fixation. The demo login route is not a real authentication implementation.
+
+### B. Store JWT revocation information in Redis
+
+JWTs are self-contained, so normally you validate them without a Redis lookup. If you need immediate logout/revocation, include a unique `jti` claim when issuing the JWT, and add that identifier to Redis during logout.
+
+~~~javascript
+const jwt = require("jsonwebtoken");
+const { randomUUID } = require("crypto");
+
+// Issue a JWT with a unique identifier.
+function createAccessToken(user) {
+  return jwt.sign(
+    {
+      sub: user.id,
+      jti: randomUUID(),
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "15m" }
+  );
+}
+
+// Revoke the token until its expiry.
+async function revokeAccessToken(token, redisClient) {
+  const payload = jwt.verify(token, process.env.JWT_SECRET);
+
+  if (!payload.jti || !payload.exp) {
+    throw new Error("Token requires jti and exp claims");
+  }
+
+  const ttl = payload.exp - Math.floor(Date.now() / 1000);
+
+  if (ttl > 0) {
+    await redisClient.set("jwt:revoked:" + payload.jti, "1", {
+      EX: ttl,
+    });
+  }
+}
+
+// Authentication middleware.
+async function authenticate(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+
+    if (!token) {
+      return res.status(401).json({ message: "Missing token" });
+    }
+
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+
+    const revoked = payload.jti
+      ? await redisClient.exists("jwt:revoked:" + payload.jti)
+      : 0;
+
+    if (revoked) {
+      return res.status(401).json({ message: "Token revoked" });
+    }
+
+    req.user = { id: payload.sub };
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+}
+~~~
+
+Here, `redisClient` is the already-connected Redis client. The example assumes JWTs are issued with a unique `jti` and a valid `exp` claim.
+
+**Important:** Revocation works only if protected routes run the middleware and check Redis on each request. For security-sensitive applications, define fail-closed behavior if Redis is unavailable. Refresh tokens should have their own secure server-side rotation/revocation flow; avoid storing raw refresh-token secrets if storing a hash is practical.
+
+## 📊 Important Comparison Table
+
+| Requirement | Recommended Redis approach |
+|---|---|
+| Traditional login session | Session ID ke through session data store karo |
+| Logout from session | Redis-backed session destroy karo |
+| JWT verification | Signature aur expiry verify karo; full JWT store karna zaroori nahi |
+| Revoke a JWT before expiry | `jti` revocation entry with TTL |
+| Refresh-token management | Server-side refresh-token record aur rotation/revocation |
+| Expire old sessions | Session expiry aur Redis TTL configure karo |
+| Security | TLS, access controls, secure cookies, least-privilege access |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I use Redis as a centralized session store for session-based authentication. For JWT authentication, I normally verify the token signature and expiry without storing every access token. If immediate revocation is required, I store the JWT's unique `jti` in a Redis denylist with a TTL until token expiration. For refresh tokens, I maintain server-side records and rotation/revocation logic."
+- **Hinglish Quick Memory:** "Session-based login mein Redis session ID ke against session data store karta hai. JWT mein token normally self-contained hota hai, isliye har JWT ko Redis mein store karna zaroori nahi. Immediate logout ke liye `jti` ko Redis mein expiry tak store karke har request par check kar sakte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
