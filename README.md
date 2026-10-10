@@ -5,7 +5,7 @@ Redis interview questions and answers are separated into two files so the questi
 ## Files
 
 - **[Redis Interview Questions](./redis-interview-question.md)** — the complete 140-question list organized into 9 levels.
-- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q100, through “What Is Automatic Failover in Redis?”
+- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q102, through “Replication vs Sharding?”
 
 ## Study Format
 
