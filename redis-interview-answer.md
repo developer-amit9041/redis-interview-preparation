@@ -5886,6 +5886,108 @@ If message persistence, replay, or consumer-group processing is required, consid
 - **English Pitch:** "Redis Pub/Sub uses publishers, channels, and subscribers. A publisher sends a message to a channel, and Redis broadcasts it to active subscribers. Messages are not persisted, so disconnected subscribers can miss them."
 - **Hinglish Quick Memory:** Publisher `PUBLISH` karta hai, Redis channel ke active subscribers ko broadcast karta hai, aur subscriber callback message process karta hai. Offline subscriber message miss kar sakta hai kyunki Pub/Sub messages store nahi karta.
 
+# 🚀 Question 70: What Are Publisher and Subscriber in Redis Pub/Sub?
+
+## 📝 Answer (English — Interview Definition)
+
+A **Publisher** is a client or application that sends messages to a Redis channel, while a **Subscriber** is a client or application that listens to a channel and receives messages published to it. Both communicate through Redis without needing direct knowledge of each other.
+
+## 🗣️ Answer in Hinglish
+
+Redis Pub/Sub mein:
+
+- **Publisher:** Jo message send karta hai. Example: Node.js Order Service.
+- **Subscriber:** Jo channel ko subscribe karke message receive karta hai. Example: Notification Service.
+
+Maan lo user order place karta hai. Order Service `order_events` channel par message publish karegi, aur us channel ko subscribe karne wali Notification Service message receive kar sakti hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       [ Publisher ]
+       (Message send karta hai)
+              |
+           PUBLISH
+              v
+       [ Redis Channel ]
+         order_events
+              |
+          Broadcast
+              v
+       [ Subscriber ]
+     (Message receive karta hai)
+~~~
+
+## 💻 Practical Node.js Example
+
+Install the Redis client:
+
+~~~bash
+npm install redis
+~~~
+
+### Publisher — `publisher.js`
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const publisher = createClient();
+  publisher.on("error", console.error);
+  await publisher.connect();
+
+  await publisher.publish("order_events", "New order placed");
+  console.log("Message published");
+
+  await publisher.quit();
+}
+
+main().catch(console.error);
+~~~
+
+### Subscriber — `subscriber.js`
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const subscriber = createClient();
+  subscriber.on("error", console.error);
+  await subscriber.connect();
+
+  await subscriber.subscribe("order_events", (message) => {
+    console.log("Subscriber received:", message);
+  });
+
+  console.log("Listening for order events...");
+  // Keep this process running to continue receiving messages.
+}
+
+main().catch(console.error);
+~~~
+
+Run `node subscriber.js` first, then run `node publisher.js` in another terminal. Redis must be running and the subscriber should already be listening when the publisher sends the message.
+
+Example output:
+
+~~~text
+Subscriber received: New order placed
+~~~
+
+## ⚙️ Important Characteristics
+
+| Characteristic | Explanation |
+|---|---|
+| Decoupling | Sender and receiver do not need direct references to each other. |
+| Independent scaling | Publishers and subscribers can be deployed as separate services. |
+| Real-time flow | Active subscribers receive broadcast messages while they are subscribed. |
+| Offline subscriber | It can miss messages published while disconnected. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Publisher sends messages to a named Redis channel, while a Subscriber listens to that channel and receives messages in real time. They communicate through Redis without direct dependencies on each other."
+- **Hinglish Quick Memory:** Publisher message bhejta hai aur Subscriber message receive karta hai. Dono directly connected nahi hote; Redis channel ke through communication hota hai. Subscriber offline ho toh woh message miss kar sakta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
