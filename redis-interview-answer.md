@@ -3810,6 +3810,76 @@ Write-Behind ko production mein use karte waqt:
 - **English Pitch:** "Write-Behind caching accepts writes into a fast cache or queue and persists them to the primary database asynchronously. It can increase write throughput, but needs durable queueing, retries, idempotent processing, and monitoring to manage delayed persistence and potential data loss."
 - **Hinglish Quick Memory:** Write-Behind mein pehle fast cache/queue mein write accept hota hai, phir background worker MongoDB mein save karta hai. Speed improve ho sakti hai, lekin pending writes ko safe rakhne ke liye durable queue, retries aur monitoring zaroori hain.
 
+# 🚀 Question 42: What Is Read-Through Cache?
+
+## 📝 Answer (English — Interview Definition)
+
+Read-Through Cache is an architectural pattern where the application communicates with a centralized cache service layer, which takes responsibility for fetching missing data from the primary database on a cache miss.
+
+In this pattern, route controllers do not query the database directly. The cache layer acts as the main read interface. When a cache miss occurs, the caching library or wrapper queries the database, populates the cache, and returns the data to the application.
+
+## 🗣️ Answer in Hinglish
+
+Read-Through caching strategy mein Express routing logic directly MongoDB database ko touch nahi karta. Woh data cache service layer se mangta hai.
+
+- **Cache Hit:** Agar data Redis RAM mein mil jata hai, toh cache service wahin se response return kar deti hai.
+- **Cache Miss:** Agar key absent hoti hai, toh dedicated cache wrapper MongoDB se data fetch karta hai, Redis mein save karta hai, aur data route ko return kar deta hai.
+
+**Important Technical Reality:** Redis internally apne aap MongoDB se data fetch nahi karta. Node.js backend mein ek dedicated wrapper/service function banana padta hai jo Read-Through model ko implement kare.
+
+## 💻 Practical Code Example (Encapsulated Cache Layer Architecture)
+
+~~~javascript
+// Part A: Encapsulation layer handles cache lookup and database fallback
+async function readThroughProductCache(productId) {
+  const cacheKey = "product:" + productId;
+
+  // 1. Check Redis
+  const cachedProduct = await redis.get(cacheKey);
+  if (cachedProduct) {
+    return JSON.parse(cachedProduct);
+  }
+
+  // 2. Cache miss: load from the database
+  const productSource = await Product.findById(productId).lean();
+  if (!productSource) return null;
+
+  // 3. Populate the cache for five minutes
+  await redis.set(cacheKey, JSON.stringify(productSource), { EX: 300 });
+
+  return productSource;
+}
+
+// Part B: Express route calls the read-through wrapper
+app.get("/products/:id", async (req, res) => {
+  try {
+    const dataset = await readThroughProductCache(req.params.id);
+
+    if (!dataset) {
+      return res.status(404).json({ message: "Requested product data is non-existent" });
+    }
+
+    return res.json(dataset);
+  } catch (error) {
+    return res.status(500).json({ message: "Internal application data stream error" });
+  }
+});
+~~~
+
+## 📊 Operational Strategy Matrix
+
+| Operational Component | Read-Through Caching Model |
+|---|---|
+| Primary query client | Routes call the cache-layer interface. |
+| Cache miss handling | Cache wrapper loads data from the primary database. |
+| Data synchronization | The wrapper populates the cache after the first read miss. |
+| Key architectural value | Separates cache/database read mechanics from route business logic. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Read-Through caching delegates cache-miss database queries to a cache management service. Controllers request data from the cache wrapper, which checks Redis, loads missing records from the database, populates the cache, and returns the result."
+- **Hinglish Quick Memory:** Read-Through model mein controller sirf `readThroughProductCache()` ko call karta hai. Cache check karna, miss hone par MongoDB se data uthana aur Redis mein save karna wrapper function handle karta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
