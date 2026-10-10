@@ -6966,6 +6966,109 @@ DISCARD
 - **English Pitch:** "`MULTI` starts a Redis transaction. Commands issued after it are queued rather than executed immediately. These commands are later executed with `EXEC` or cancelled with `DISCARD`."
 - **Hinglish Quick Memory:** "`MULTI` transaction start karta hai aur commands ko queue mein rakhta hai. `EXEC` commands execute karta hai, jabki `DISCARD` unhe cancel karta hai."
 
+# 🚀 Question 81: What Is EXEC?
+
+## 📝 Answer (English — Interview Definition)
+
+**`EXEC` is a Redis command that executes the commands queued after `MULTI`.** Redis executes the queued commands sequentially as an isolated transaction, preventing commands from other clients from interleaving during that execution. `EXEC` returns the result of each queued command.
+
+If a key watched using `WATCH` has been modified before `EXEC`, Redis can abort the transaction instead.
+
+## 🗣️ Answer in Hinglish
+
+`EXEC` ka kaam `MULTI` ke baad queue kiye gaye commands ko execute karna hai.
+
+1. `MULTI` transaction start karega.
+2. `SET` aur `INCR` jaise commands queue honge.
+3. `EXEC` un commands ko sequence mein execute karega.
+4. Redis har command ka result return karega.
+
+Redis transaction ki execution ke beech doosre clients ke commands interleave nahi hote. Lekin ek important baat: **`EXEC` ka matlab SQL-style automatic rollback nahi hai.** Agar transaction ke andar kisi command ko execute karte waqt runtime error aa jaye, toh Redis automatically pehle execute ho chuke commands ko undo nahi karta.
+
+Agar `WATCH` ki gayi key transaction execute hone se pehle change ho jaati hai, toh `EXEC` transaction abort kar sakta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+             MULTI
+               |
+               v
+        Commands queued
+               |
+               v
+             EXEC
+               |
+               v
+   Redis executes commands in order
+               |
+               v
+      Results returned to client
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Queue commands
+
+~~~bash
+MULTI
+SET order:101:status "pending"
+INCR orders:count
+~~~
+
+Expected response for each queued command:
+
+~~~text
+QUEUED
+~~~
+
+### Step 2: Run EXEC
+
+~~~bash
+EXEC
+~~~
+
+Example output:
+
+~~~text
+1) OK
+2) (integer) 1
+~~~
+
+- `OK` — `SET` command successfully executed.
+- `(integer) 1` — `INCR` command ne counter ko increment karke `1` return kiya. Actual value pehle se existing counter par depend karegi.
+
+### Step 3: Verify the stored data
+
+~~~bash
+GET order:101:status
+GET orders:count
+~~~
+
+Example output for a fresh counter:
+
+~~~text
+"pending"
+"1"
+~~~
+
+Is tarah `EXEC` ke through queued commands execute hote hain, aur hum result verify kar sakte hain.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Purpose | `MULTI` ke baad queued commands execute karna |
+| Execution order | Queued commands sequentially execute hote hain |
+| Return value | Har queued command ka result return karta hai |
+| Isolation | Execution ke beech doosre clients ke commands interleave nahi hote |
+| `WATCH` behavior | Watched key change hone par transaction abort ho sakta hai |
+| Automatic rollback | Runtime command errors par automatic rollback nahi hota |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`EXEC` executes the commands queued after `MULTI` in sequential order as an isolated Redis transaction and returns their results. If a key watched with `WATCH` changes before execution, the transaction can be aborted. Redis transactions do not automatically roll back commands that have already succeeded when a later command fails at runtime."
+- **Hinglish Quick Memory:** "`EXEC` queued commands ko sequence mein execute karta hai aur unke results deta hai. `WATCH` ki gayi key change ho toh transaction abort ho sakta hai. Runtime error aane par pehle execute ho chuke commands automatically undo nahi hote."
+
 ---
 
 *More answers will be added in question order, using this format.*
