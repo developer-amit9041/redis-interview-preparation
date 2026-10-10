@@ -14011,6 +14011,96 @@ MERN application mein Lua script ka use inventory decrement, conditional counter
 - **English Pitch:** "We use Lua scripts in Redis to execute multiple operations and conditional business logic atomically on the server. They reduce network round trips and help prevent race conditions. However, scripts should be short because they block Redis command processing while running, and runtime errors do not automatically roll back previous writes."
 - **Hinglish Quick Memory:** "Lua scripts Redis mein multiple commands aur conditions ko ek atomic server-side execution mein chalane ke liye use hoti hain. Isse network round trips kam hote hain aur race conditions avoid karne mein help milti hai. Lekin scripts short rakhni chahiye kyunki execution ke waqt Redis doosre commands process nahi karta."
 
+# 🚀 Question 138: What Is Distributed Locking?
+
+## 📝 Answer (English — Interview Definition)
+
+**Distributed locking is a mechanism that coordinates access to a shared resource across multiple processes or application instances.** It helps ensure that only one owner holds a lock at a time for a particular resource, according to the locking system's guarantees.
+
+Redis can be used to implement a distributed lock with commands such as `SET` using `NX` and an expiration using `PX`. A safe implementation must also release the lock only if the caller still owns it.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo hamara MERN application AWS par 3 Node.js instances mein run ho raha hai. Ek hi time par do instances same job process karne ki koshish kar sakte hain—jaise ek hi order ka duplicate invoice generate karna.
+
+**Distributed lock ek shared lock hai** jo different servers ya processes ko coordinate karta hai. Ek instance lock acquire karta hai; baaki instances ko wait karna ya operation skip karna pad sakta hai, jab tak lock available na ho.
+
+Redis mein common pattern hai:
+
+- `SET lock:key unique_token NX PX 10000`
+- `NX` ka matlab key tabhi set karo jab woh pehle se exist na karti ho.
+- `PX 10000` lock ko 10,000 milliseconds yani 10 seconds ka expiry time deta hai.
+- Unique token lock ke owner ko identify karta hai.
+
+**Important:** Sirf lock key delete kar dena safe nahi hai. Agar lock expire ho chuka ho aur kisi doosre instance ne naya lock acquire kar liya ho, toh purana owner galti se naye owner ka lock delete kar sakta hai. Isliye release operation mein ownership verify karna zaroori hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       Node.js Instance A
+               |
+               | Acquire lock
+               v
+          Redis Lock
+               ^
+               | Try to acquire
+               |
+       Node.js Instance B
+
+A acquires lock -> A processes resource
+B cannot acquire -> B waits, retries, or skips
+Lock released safely -> another instance may acquire
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Acquire the lock
+
+~~~bash
+SET lock:invoice:101 token-A NX PX 10000
+~~~
+
+Agar lock acquire ho gaya, Redis `OK` return karega. Agar lock pehle se kisi aur ke paas hai, command lock acquire nahi karegi.
+
+Yahan `token-A` example ownership token hai. Real application mein cryptographically strong, unique token generate karna chahiye.
+
+### Step 2: Release the lock safely
+
+Lock ko sirf tab delete karna chahiye jab current token abhi bhi uska owner ho. Iske liye Lua script use kar sakte hain:
+
+~~~bash
+EVAL "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end" 1 lock:invoice:101 token-A
+~~~
+
+- Token match hua: lock delete hoga.
+- Token match nahi hua: lock delete nahi hoga, aur script `0` return karegi.
+
+Isse purana owner galti se kisi naye owner ka lock delete nahi karega.
+
+### Step 3: Handle lock expiration
+
+Lock `PX 10000` ke baad expire ho sakta hai. Agar invoice process hone mein 10 seconds se zyada lagte hain, toh lock expire hone ke baad doosra instance bhi processing start kar sakta hai.
+
+Isliye real applications mein duration ko carefully choose karna, long operations ke liye lease renewal design karna, aur correctness-critical systems mein **fencing tokens** ya resource-side validation consider karna zaroori hai.
+
+## 📊 Important Points
+
+| Feature | Explanation |
+|---|---|
+| Purpose | Multiple instances ke shared resource access ko coordinate karna |
+| Redis lock pattern | `SET key token NX PX milliseconds` |
+| `NX` | Key absent ho tabhi set karna |
+| `PX` | Lock expiry time milliseconds mein set karna |
+| Ownership token | Ensure karta hai ki sirf current owner lock release kare |
+| Safe release | Token check aur delete ko atomically perform karna |
+| Main risk | Lock expire hone ke baad purana operation continue reh sakta hai |
+| Common use case | Duplicate job prevention, scheduled tasks, resource coordination |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Distributed locking coordinates access to a shared resource across multiple application instances. In Redis, a common approach is `SET lock:key token NX PX ttl`. The unique token identifies the owner, and the lock should be released atomically only if the token matches. For long-running or correctness-critical operations, expiration and stale owners must also be handled."
+- **Hinglish Quick Memory:** "Distributed lock multiple servers ke beech shared resource ko coordinate karta hai. Redis mein `SET key token NX PX ttl` se lock acquire karte hain. Lock release karte waqt token verify karna chahiye, warna old instance naye owner ka lock delete kar sakta hai. Expiry ke baad old operation continue ho sakta hai, isliye production safety bhi zaroori hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
