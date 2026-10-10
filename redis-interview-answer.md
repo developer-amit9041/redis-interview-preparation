@@ -7069,6 +7069,103 @@ Is tarah `EXEC` ke through queued commands execute hote hain, aur hum result ver
 - **English Pitch:** "`EXEC` executes the commands queued after `MULTI` in sequential order as an isolated Redis transaction and returns their results. If a key watched with `WATCH` changes before execution, the transaction can be aborted. Redis transactions do not automatically roll back commands that have already succeeded when a later command fails at runtime."
 - **Hinglish Quick Memory:** "`EXEC` queued commands ko sequence mein execute karta hai aur unke results deta hai. `WATCH` ki gayi key change ho toh transaction abort ho sakta hai. Runtime error aane par pehle execute ho chuke commands automatically undo nahi hote."
 
+# 🚀 Question 82: What Is DISCARD?
+
+## 📝 Answer (English — Interview Definition)
+
+**`DISCARD` is a Redis command that cancels a transaction before it is executed.** It removes the commands queued after `MULTI` and exits the transaction state. The queued commands are not executed.
+
+## 🗣️ Answer in Hinglish
+
+`DISCARD` ka use tab hota hai jab humne `MULTI` se transaction start kar diya ho aur kuch commands queue kar di hon, lekin baad mein decide karein ki unhe execute nahi karna.
+
+- `MULTI` — transaction start karta hai.
+- Commands — queue mein jaati hain.
+- `DISCARD` — queued commands cancel kar deta hai.
+- `EXEC` — queued commands execute karta hai, agar transaction discard nahi kiya gaya ho.
+
+**Yaad rakho:** `DISCARD` sirf queued commands ko cancel karta hai. Jo commands pehle hi transaction ke bahar execute ho chuki hain, unhe yeh undo nahi karta.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       MULTI
+          |
+          v
+   Commands queued
+          |
+          v
+       DISCARD
+          |
+          v
+  Queued commands cancelled
+          |
+          v
+ Transaction mode exited
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Start a transaction and queue commands
+
+~~~bash
+MULTI
+SET user:102:name "Rahul"
+INCR users:count
+~~~
+
+Dono commands par Redis response dega:
+
+~~~text
+QUEUED
+~~~
+
+Is stage par commands execute nahi hue hain.
+
+### Step 2: Cancel the transaction
+
+~~~bash
+DISCARD
+~~~
+
+Response:
+
+~~~text
+OK
+~~~
+
+### Step 3: Verify the result
+
+~~~bash
+GET user:102:name
+GET users:count
+~~~
+
+Agar ye keys pehle exist nahi karti thi, toh output hoga:
+
+~~~text
+(nil)
+(nil)
+~~~
+
+Matlab queued `SET` aur `INCR` execute hi nahi hue. Agar keys pehle se exist karti thi, toh unki existing values unchanged rahengi.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Purpose | Queued transaction commands cancel karna |
+| Works with | `MULTI` transaction |
+| Commands execute hote hain? | Nahi |
+| Transaction mode | Exit ho jata hai |
+| Previous executed commands undo hote hain? | Nahi |
+| Related command | `EXEC` queued commands execute karta hai |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`DISCARD` cancels a Redis transaction before execution. It removes the queued commands and exits the transaction state, so those commands are not executed."
+- **Hinglish Quick Memory:** "`DISCARD` transaction mein queued commands ko cancel karta hai. Iske baad woh commands execute nahi hote aur transaction mode exit ho jata hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
