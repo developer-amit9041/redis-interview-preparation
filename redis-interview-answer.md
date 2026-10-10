@@ -384,6 +384,144 @@ MERN applications mein MongoDB aur Redis aksar saath kaam karte hain; dono ek-do
 
 ---
 
+# 🚀 Question 4: What are the Main Use Cases of Redis?
+
+## 📝 Answer (English)
+
+Redis is commonly used in applications that need low-latency data access, fast lookups, counters, and real-time features. Its in-memory storage and versatile data structures make it useful for **caching, session management, API rate limiting, Pub/Sub messaging, leaderboards, atomic counters, and background job queues**.
+
+The best use case depends on the application's requirements. For example, cache entries can often be rebuilt from a primary database, while sessions, counters, queues, or directly stored data need an appropriate expiration, persistence, backup, and recovery strategy.
+
+## 🗣️ Answer (Hinglish)
+
+Redis ka use hum applications mein data ko quickly access karne, primary database ka repeated query load kam karne, aur real-time features banane ke liye karte hain. Iske **7 important use cases** hain:
+
+1. **Caching:** Frequently accessed data ki copy Redis mein rakhna, taaki har request par MongoDB query na chalani pade. Example: e-commerce product details.
+2. **Session Management:** Logged-in users ki session state ko Redis mein store karna. Example: Express application mein session store.
+3. **API Rate Limiting:** Ek IP ya user kitni requests bhej sakta hai, usko time window ke andar track aur limit karna. Example: 100 requests per minute. Rate limiting abusive traffic ko control karne mein help karti hai, lekin akeli DDoS protection ka complete solution nahi hai.
+4. **Real-Time Messaging (Pub/Sub):** Services ya application components ke beech notifications aur events broadcast karna. Pub/Sub fire-and-forget hota hai; offline subscribers messages miss kar sakte hain.
+5. **Leaderboards:** Sorted Sets ke scores ke basis par users/products ko rank karna. Example: gaming leaderboard.
+6. **Atomic Counters:** Page views, likes ya request counts ko `INCR` / `INCRBY` se update karna. Redis ke individual increment commands atomic hote hain.
+7. **Background Jobs / Queues:** Email sending, report generation aur image processing jaise tasks ko background mein process karna. Node.js mein BullMQ Redis ko job storage/coordination ke liye use karta hai.
+
+**Simple words mein:** Redis tab useful hota hai jab aapko fast lookups, counters, temporary state, messaging ya background task processing chahiye.
+
+## 💻 Code Example — Redis Caching in Node.js
+
+### Step 1: Install package
+
+```bash
+npm install redis
+```
+
+### Step 2: Create `app.js`
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({
+    url: "redis://localhost:6379",
+  });
+
+  redis.on("error", (err) => {
+    console.error("Redis Error:", err);
+  });
+
+  await redis.connect();
+
+  const product = {
+    name: "Laptop",
+    price: 50000,
+  };
+
+  // Cache the product for 5 minutes (300 seconds).
+  await redis.set(
+    "product:101",
+    JSON.stringify(product),
+    { EX: 300 }
+  );
+
+  // Retrieve the cached value.
+  const cachedValue = await redis.get("product:101");
+
+  if (cachedValue !== null) {
+    console.log(JSON.parse(cachedValue));
+    // { name: "Laptop", price: 50000 }
+  }
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+**Prerequisite:** Redis server `localhost:6379` par running hona chahiye.
+
+**How this works:** `SET` product ko JSON string mein store karta hai, aur `EX: 300` us key ka TTL 5 minutes set karta hai. Real cache-aside implementation mein pehle Redis check karte hain; cache miss hone par MongoDB se fetch karke result cache karte hain.
+
+## 🔄 Real-World MERN Architecture Mapping
+
+MERN application mein MongoDB aur Redis ko different responsibilities de sakte hain:
+
+| System requirement | Production solution | Redis feature |
+|---|---|---|
+| Product API ko fast banana | Frequently accessed product details cache karna | Strings/Hashes with TTL |
+| User session state | Session store | Key-value storage with expiration |
+| Request abuse control | API rate limiting | Atomic counters, expiration, or Lua scripts |
+| In-app notifications | Real-time event broadcast | Pub/Sub channels |
+| Top-performing products/users | Live leaderboard | Sorted Sets: `ZADD`, `ZRANGE` |
+| Page views or likes | Fast counters | `INCR`, `INCRBY` |
+| Background tasks | Email/report/image-processing jobs | BullMQ or another Redis-backed queue |
+
+### Example architecture
+
+```text
+             [ React Frontend ]
+                     |
+                     v
+             [ Node.js / Express ]
+                     |
+          +----------+-----------+
+          |                      |
+          v                      v
+    [ Redis Layer ]        [ MongoDB ]
+    - Cache                 - User accounts
+    - Sessions              - Orders/invoices
+    - Rate-limit counters   - Durable business records
+    - Pub/Sub / jobs        - Primary application data
+```
+
+**Important:** Orders, invoices aur financial records ko generally durable primary database—jaise MongoDB ya SQL database—mein maintain karna chahiye. Redis un workflows ko accelerate ya coordinate kar sakta hai, lekin backup/recovery requirements ke bina usse automatically safe backup system nahi maana jaana chahiye.
+
+## 📋 Technical Summary
+
+| Use case | Core Redis feature | Why Redis helps |
+|---|---|---|
+| Caching | Strings, Hashes, TTL | Repeated primary-database reads kam kar sakta hai |
+| Rate limiting | `INCR`, expiration, Lua | Fast request counts aur limit checks |
+| Leaderboards | Sorted Sets | Score ke hisaab se ranking |
+| Counters | `INCR`, `INCRBY` | Atomic increments |
+| Pub/Sub | `PUBLISH`, `SUBSCRIBE` | Low-latency broadcast, without offline message replay |
+| Background jobs | Redis-backed job libraries such as BullMQ | Job scheduling and worker coordination |
+
+## ⏱️ Easy Revision — 1-Minute Notes
+
+- Redis ke common use cases hain caching, sessions, API rate limiting, Pub/Sub, leaderboards, counters aur background queues.
+- Caching frequently accessed data ko quickly serve karke MongoDB/SQL load reduce kar sakti hai.
+- Sessions ke liye TTL useful hota hai; expiration session lifecycle ke hisaab se set karein.
+- Rate limiting requests ko control karti hai, lekin full DDoS protection ke liye extra infrastructure ki zaroorat hoti hai.
+- Sorted Sets leaderboards ke liye aur `INCR` counters ke liye useful hain.
+- Pub/Sub live broadcasting ke liye hai; messages persist/replay karne hon toh Redis Streams ya durable messaging system consider karein.
+- Background jobs ke liye Node.js mein BullMQ jaise Redis-backed libraries use ki ja sakti hain.
+
+**Interview answer to remember:** “Redis is commonly used for caching, session management, API rate limiting, real-time messaging, leaderboards, atomic counters, and background job processing. Its in-memory access and efficient data structures make it useful for low-latency application features.”
+
+---
+
 ---
 
 *More answers will be added in question order, using this format.*
