@@ -13107,6 +13107,111 @@ Agar Redis latency monitoring configured/enabled hai aur relevant events collect
 - **English Pitch:** "Redis can become slow despite being in-memory because of expensive commands, CPU or memory pressure, large payloads, persistence overhead, network latency, and excessive requests. I use `SLOWLOG`, `INFO`, `LATENCY DOCTOR`, and `redis-cli --latency` to identify the bottleneck, then optimize and measure again."
 - **Hinglish Quick Memory:** "In-memory hone ke baad bhi Redis slow ho sakta hai—expensive commands, CPU/RAM pressure, large data, persistence ya network ki wajah se. Main pehle `SLOWLOG`, `INFO` aur latency metrics check karta hoon, phir actual bottleneck fix karke performance dobara measure karta hoon."
 
+# 🚀 Question 130: What Is a Hot Key in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+A **hot key in Redis** is a key that receives a disproportionately high number of read or write requests compared with other keys. It can become a performance bottleneck because many requests concentrate on the same key, increasing load on the Redis node responsible for that key.
+
+Hot keys can cause increased latency and uneven resource utilization, especially in Redis Cluster, where a key is handled by one specific hash slot and its primary node.
+
+## 🗣️ Answer in Hinglish
+
+**Hot key woh Redis key hoti hai jiske upar bahut zyada requests aati hain** compared with baaki keys.
+
+Maan lo ek e-commerce website par ek product bahut popular hai. Us product ka cached data `product:101` key mein store hai, aur thousands of users baar-baar isi key ko access kar rahe hain. Toh `product:101` hot key ban sakti hai.
+
+Isse problems ho sakti hain:
+
+- Ek Redis node par disproportionate load aa sakta hai.
+- Request latency increase ho sakti hai.
+- Redis Cluster mein data evenly distributed hone ke bawajood, jis node par hot key hai woh bottleneck ban sakta hai.
+
+**Important:** Hot key ka matlab sirf large-size key nahi hai. Main issue us key par concentrated traffic hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        Thousands of Users
+          |    |    |    |
+          +----+----+----+
+                   |
+                   v
+          Redis key: product:101
+              (HOT KEY)
+                   |
+                   v
+          Redis Primary Node
+          High request load
+                   |
+                   v
+             Higher latency
+~~~
+
+## 💻 Practical Example — Node.js + Redis
+
+Suppose a popular product ka data Redis mein cached hai:
+
+~~~javascript
+const product = await redis.get("product:101");
+~~~
+
+Agar bahut saare users repeatedly isi key ko request karte hain, toh yeh key hot ho sakti hai.
+
+### Common solution: Local cache for frequently read data
+
+~~~javascript
+const localCache = new Map();
+
+async function getPopularProduct(redis) {
+  const key = "product:101";
+
+  if (localCache.has(key)) {
+    return localCache.get(key);
+  }
+
+  const value = await redis.get(key);
+
+  if (value !== null) {
+    localCache.set(key, value);
+
+    // Simple example only; use a real TTL cache in production.
+    setTimeout(() => localCache.delete(key), 5000);
+  }
+
+  return value;
+}
+~~~
+
+Is example mein har request Redis tak jaane ke bajaye, kuch requests local in-memory cache se data read kar sakti hain.
+
+**Production note:** `Map` cache har Node.js instance par alag hoga, memory consume karega aur update ke baad stale data de sakta hai. Production mein TTL, invalidation, memory limits aur consistency strategy properly implement karni chahiye. Multiple replicas ke beech cache synchronization bhi consider karna hoga.
+
+## 📊 Hot Key Problems and Solutions
+
+| Problem | Possible solution |
+|---|---|
+| Same key par excessive reads | Local caching or carefully configured read replicas |
+| Popular product key overload | Cache copies or controlled key sharding |
+| Single counter par heavy writes | Split the counter across multiple keys and aggregate |
+| Repeated identical requests | Request coalescing or single-flight |
+| Hot key Redis Cluster mein bottleneck ho | Monitor hot slots/nodes and redesign access patterns |
+
+### How Can You Identify a Hot Key?
+
+Redis provides commands and monitoring tools that can help investigate high-traffic keys. For example:
+
+~~~bash
+redis-cli --hotkeys
+~~~
+
+This command is useful when the configured eviction policy supports the required sampling. It is not a universal, exact request counter for every key. Production monitoring and traffic analysis may be needed to confirm the actual hot key.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A hot key in Redis is a key that receives a disproportionately high volume of traffic and can overload the node responsible for it. I would identify hot keys through monitoring and traffic analysis, then consider local caching, read replicas, key sharding, or request coalescing depending on whether the workload is read-heavy or write-heavy."
+- **Hinglish Quick Memory:** "Hot key woh key hai jis par bahut zyada requests aati hain. Isse ek Redis node overloaded aur latency high ho sakti hai. Problem identify karne ke baad local cache, read replicas, key sharding ya request coalescing use kar sakte hain—solution workload par depend karta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
