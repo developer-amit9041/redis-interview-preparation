@@ -947,6 +947,207 @@ await redis.del("otp:user101");
 
 **Interview answer to remember:** “TTL stands for Time To Live. It defines how long a Redis key remains available before expiring. We set it using the EX option in SET or with EXPIRE, and check remaining time with TTL or PTTL.”
 
+# 🚀 Question 9: What Is Key Expiration in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+Key expiration in Redis is a built-in feature that makes a key unavailable after a specified period. Expiry can be set when a key is created using options such as `EX`, or applied later to an existing key with the `EXPIRE` command.
+
+Key expiration is useful for temporary data, cache freshness, OTPs, rate-limit windows, and session timeouts. It also helps prevent expired temporary records from remaining in memory indefinitely.
+
+## 🗣️ Answer (Hinglish)
+
+Redis mein **Key Expiration** ka matlab hai kisi key ko ek fixed time ke baad automatically expire kar dena.
+
+**TTL vs Key Expiration:**
+
+- **TTL (Time To Live):** Yeh batata hai ki key expire hone mein kitne seconds bache hain.
+- **Key Expiration:** Yeh woh mechanism hai jiske through expiry time complete hone par key unavailable ho jaati hai.
+
+**Example:** Agar OTP ko Redis mein `EX: 300` ke saath store kiya, toh 5 minutes baad key expire ho jayegi. Uske baad `GET` karne par value nahi milegi.
+
+## 💻 Practical Code Example — Node.js + Redis
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+
+  await redis.connect();
+
+  // Store OTP with a five-minute expiration.
+  await redis.set("otp:user101", "482913", { EX: 300 });
+
+  // Check the remaining time in seconds.
+  const remainingSeconds = await redis.ttl("otp:user101");
+  console.log("Remaining seconds:", remainingSeconds);
+
+  // Retrieve the OTP while the key exists.
+  const otp = await redis.get("otp:user101");
+  console.log("OTP:", otp); // 482913
+
+  // After expiry, GET returns null.
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+## 📊 Essential Expiration Commands
+
+| Command | Purpose | Example |
+|---|---|---|
+| `SET ... EX` | Set expiry when storing a value | `SET cache:home "data" EX 300` |
+| `EXPIRE` | Set expiry on an existing key | `EXPIRE user:session 60` |
+| `TTL` | Check remaining expiry in seconds | `TTL user:session` |
+| `PERSIST` | Remove a key's expiry | `PERSIST user:session` |
+| `DEL` | Delete a key immediately | `DEL user:session` |
+
+## ⚙️ How Redis Handles Expired Keys
+
+Redis uses two complementary mechanisms:
+
+1. **Passive (lazy) expiration:** When a key is accessed, Redis checks whether it has expired. An expired key is treated as unavailable and removed.
+2. **Active expiration:** Redis periodically samples keys that have expiry times and cleans up expired entries, including keys that clients do not access.
+
+### Real-world MERN use
+
+```javascript
+await redis.set(
+  "product:101",
+  JSON.stringify({ name: "Laptop", price: 50000 }),
+  { EX: 300 }
+);
+```
+
+After the cache expires, the next request can get a cache miss, fetch fresh product data from MongoDB, and populate Redis again. The application still needs a cache invalidation strategy for updates that should become visible before the TTL ends.
+
+**OTP security note:** TTL alone does not make an OTP flow secure. After successful verification, delete the OTP explicitly so it cannot be reused.
+
+```javascript
+// After successful OTP verification:
+await redis.del("otp:user101");
+```
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- Key expiration makes a Redis key unavailable after a configured duration.
+- Use `EX` with `SET`, or apply an expiry later with `EXPIRE`.
+- TTL reports remaining time; key expiration is the mechanism that makes the key expire.
+- Redis uses passive checks and periodic active cleanup.
+- Cache entries, OTPs, and session keys commonly use expiration.
+- Delete a successfully used OTP explicitly, as part of verification logic.
+
+**Interview answer to remember:** “Key expiration is a Redis feature that automatically makes a key unavailable after a configured duration. Expiry can be set with the EX option in SET or by using EXPIRE. Redis uses passive expiration checks and periodic active cleanup to handle expired keys.”
+
+# 🚀 Question 10: What Are the Most Commonly Used Redis Commands?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis provides commands to store, retrieve, update, and delete data, set key expiration, operate on different data structures, and inspect server availability. Common commands include `SET`, `GET`, `DEL`, `EXISTS`, `EXPIRE`, `TTL`, and `INCR`. Redis also offers data-type-specific commands such as `HSET` for Hashes, `LPUSH`/`RPUSH` for Lists, `SADD` for Sets, and `ZADD` for Sorted Sets.
+
+## 🗣️ Answer (Hinglish)
+
+Redis commands se hum data insert, read, update aur delete karte hain. Interview mein commands ko category ke hisaab se batana easy hota hai:
+
+- **Basic key-value:** `SET`, `GET`, `DEL`, `EXISTS`
+- **Expiry:** `EXPIRE`, `TTL`, `PERSIST`
+- **Counters:** `INCR`, `DECR`, `INCRBY`
+- **Hashes:** `HSET`, `HGET`, `HGETALL`
+- **Lists:** `LPUSH`, `RPUSH`, `LRANGE`
+- **Sets:** `SADD`, `SMEMBERS`
+- **Sorted Sets:** `ZADD`, `ZRANGE`
+- **Connection check:** `PING`
+
+## 📊 Redis Commands Reference Table
+
+| Category | Command | Purpose | Production example |
+|---|---|---|---|
+| Basic CRUD | `SET` | Store or replace a value | `SET user:name "Amit"` |
+| Basic CRUD | `GET` | Read a value | `GET user:name` |
+| Basic CRUD | `MSET / MGET` | Write/read multiple keys | `MSET name "Amit" city "Delhi"` |
+| Basic CRUD | `DEL` | Delete one or more keys | `DEL user:name` |
+| Basic CRUD | `EXISTS` | Check key existence | `EXISTS user:name` |
+| Expiry | `EXPIRE` | Set expiry in seconds | `EXPIRE user:name 60` |
+| Expiry | `TTL` | Check remaining expiry | `TTL user:name` |
+| Expiry | `PERSIST` | Remove the key's expiry | `PERSIST user:name` |
+| Atomic counters | `INCR / DECR` | Increment/decrement by one | `INCR page_views` |
+| Atomic counters | `INCRBY` | Increase by a specified amount | `INCRBY page_views 10` |
+| Hashes | `HSET` | Set Hash fields | `HSET user:1 name "Amit" role "Dev"` |
+| Hashes | `HGETALL` | Read all Hash fields | `HGETALL user:1` |
+| Lists | `LPUSH / RPUSH` | Add an item to the left or right | `RPUSH tasks "SendEmail"` |
+| Lists | `LRANGE` | Read a list range | `LRANGE tasks 0 -1` |
+| Sets | `SADD` | Add unique members | `SADD skills "Node.js" "React"` |
+| Sets | `SMEMBERS` | Read set members | `SMEMBERS skills` |
+| Sorted Sets | `ZADD` | Add a member with a score | `ZADD leaderboard 100 "Amit"` |
+| Health check | `PING` | Test the Redis connection | `PING` |
+
+## 💻 Practical Code Example — Node.js + Redis
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+
+  await redis.connect();
+
+  // 1. SET and GET
+  await redis.set("username", "Amit");
+  console.log("Username:", await redis.get("username"));
+
+  // 2. EXPIRE and TTL
+  await redis.expire("username", 60);
+  console.log("Remaining TTL:", await redis.ttl("username"));
+
+  // 3. Atomic counter
+  await redis.set("page_views", "0");
+  await redis.incr("page_views");
+  console.log("Page views:", await redis.get("page_views")); // "1"
+
+  // 4. Hash fields
+  await redis.hSet("user:1", { name: "Amit", role: "Developer" });
+  console.log("Hash:", await redis.hGetAll("user:1"));
+
+  // 5. Delete a key
+  await redis.del("username");
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+**Prerequisite:** Redis server must be running and reachable at `localhost:6379`.
+
+## 🔄 Real-World MERN Usage Mapping
+
+- **Product API caching:** Use `SET` with `EX` to cache serialized data for a limited time.
+- **Login rate limiting:** Use counters and expiration, with atomic logic appropriate to the chosen rate-limit algorithm.
+- **Session data:** Hash commands such as `HSET` and `HGETALL` can store fields when that data model fits.
+- **Leaderboard:** Use `ZADD` and `ZRANGE`.
+- **Connectivity:** Use `PING` to check Redis reachability.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- `SET` saves, `GET` reads, and `DEL` deletes.
+- `EXPIRE` sets an expiry; `TTL` checks remaining time.
+- `INCR` atomically increments an integer counter.
+- `HSET` stores Hash fields; `LPUSH`/`RPUSH` add List items.
+- `SADD` adds unique Set members; `ZADD` adds score-based Sorted Set members.
+- Prefer `SCAN` for incremental key iteration rather than using `KEYS *` on a production database with many keys.
+
+**Interview answer to remember:** “Common Redis commands include SET, GET, DEL, EXISTS, EXPIRE, TTL, and INCR. Redis also provides data-type-specific commands such as HSET, LPUSH/RPUSH, SADD, and ZADD for manipulating Hashes, Lists, Sets, and Sorted Sets.”
+
 ---
 
 *More answers will be added in question order, using this format.*
