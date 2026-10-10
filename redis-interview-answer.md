@@ -4124,6 +4124,68 @@ await redis.persist("user:102");
 - **English Pitch:** "TTL controls how long a Redis key remains valid. Set it at creation with `EX` or `PX`, or apply it to an existing key with `EXPIRE` or `PEXPIRE`. Use `TTL` or `PTTL` to inspect the remaining lifetime; `-1` means no expiration is set, and `-2` means the key does not exist."
 - **Hinglish Quick Memory:** TTL se decide hota hai Redis key kitni der valid rahegi. Nayi string key ke saath `{ EX: seconds }` use karo, existing key par `redis.expire()` lagao, aur remaining time jaanne ke liye `redis.ttl()` check karo.
 
+# 🚀 Question 47: How Do You Invalidate Redis Cache?
+
+## 📝 Answer (English — Interview Definition)
+
+Cache invalidation is the process of deleting or refreshing cached data when the underlying source data changes. It helps prevent applications from serving stale values.
+
+In Redis, an application can remove outdated keys with `DEL`, or use `UNLINK` when asynchronous memory reclamation is preferable. Another option is to write fresh data back into the cache. In a cache-aside design, a common approach is to update the database and then delete the related cache keys so the next read reloads the latest data.
+
+## 🗣️ Answer in Hinglish
+
+Cache Invalidation ka simple matlab hai Redis ke andar rakhe purane ya stale data ko delete ya refresh karna, jab main database (MongoDB) mein change hota hai.
+
+Maan lo product ka price MongoDB mein ₹500 se ₹700 ho gaya, lekin Redis mein abhi bhi ₹500 cached hai. Cache invalidation na ho toh customers ko purana price dikh sakta hai. Is problem ko cache staleness kehte hain.
+
+### 🛠️ Common Invalidation Patterns
+
+1. **Delete/Purge (Cache-Aside):** Database update successfully hone ke baad related cache keys ko `redis.del()` se delete kar do. Agli read cache miss hogi aur application database se current value load kar sakti hai.
+2. **Refresh/Overwrite:** Updated database value milne ke baad `redis.set()` se cache ko fresh value se overwrite kar do. Is pattern mein TTL aur related keys ka dhyan rakhna zaroori hai.
+3. **TTL as a fallback:** TTL stale data ko hamesha ke liye rehne se rokne mein help karta hai, lekin TTL expire hone tak stale data serve ho sakta hai.
+
+## 💻 Practical Code Example (Multi-Key Invalidation)
+
+~~~javascript
+async function processInventoryUpdate(productId, dynamicPayload) {
+  // 1. Update the source of truth in MongoDB
+  const updatedRecord = await Product.findByIdAndUpdate(
+    productId,
+    dynamicPayload,
+    { new: true, runValidators: true }
+  ).lean();
+
+  if (!updatedRecord) {
+    throw new Error("Target product was not found");
+  }
+
+  // 2. Invalidate the individual product and cached product catalog
+  const cacheKeyIndividual = `product:${productId}`;
+  const cacheKeyBulkCatalog = "products:all";
+
+  await redis.del([cacheKeyIndividual, cacheKeyBulkCatalog]);
+
+  return updatedRecord;
+}
+~~~
+
+### ⚠️ Production Consideration
+
+MongoDB update successful ho sakta hai, lekin uske baad Redis invalidation network timeout ya Redis outage ke kaaran fail ho sakti hai. Isse stale cache reh sakta hai. Production systems mein retries, short TTLs, monitoring, and—where stronger reliability is required—an outbox/event-driven invalidation mechanism consider kiya ja sakta hai. Database aur Redis ke beech ek ordinary pair of calls apne aap atomic nahi hota.
+
+## 📊 Operational Invalidation Strategy Matrix
+
+| Invalidation Strategy | Execution Pattern | Trade-off | Typical Use |
+|---|---|---|---|
+| `DEL` / `UNLINK` | Delete cache keys after source data changes. | Next read may be slower because it must repopulate the cache. | Common cache-aside pattern. |
+| Active overwrite | Write a fresh value to the cache. | Requires the correct updated value and consistent handling of related keys. | Useful when the value is already available after a write. |
+| TTL expiration | Let a key expire automatically. | Stale data can be served until expiry. | Safety net, not always sufficient as the only invalidation strategy. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Cache invalidation removes or refreshes stale cache entries after the underlying data changes. In a cache-aside pattern, the application commonly updates the database and deletes related Redis keys with `DEL`, allowing subsequent reads to reload the current data."
+- **Hinglish Quick Memory:** Database mein change hua toh related Redis keys delete ya refresh karo. Cache-aside mein common pattern hai MongoDB update ke baad `redis.del()` chalana, taaki next request fresh data load kar sake.
+
 ---
 
 *More answers will be added in question order, using this format.*
