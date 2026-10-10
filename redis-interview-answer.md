@@ -14101,6 +14101,184 @@ Isliye real applications mein duration ko carefully choose karna, long operation
 - **English Pitch:** "Distributed locking coordinates access to a shared resource across multiple application instances. In Redis, a common approach is `SET lock:key token NX PX ttl`. The unique token identifies the owner, and the lock should be released atomically only if the token matches. For long-running or correctness-critical operations, expiration and stale owners must also be handled."
 - **Hinglish Quick Memory:** "Distributed lock multiple servers ke beech shared resource ko coordinate karta hai. Redis mein `SET key token NX PX ttl` se lock acquire karte hain. Lock release karte waqt token verify karna chahiye, warna old instance naye owner ka lock delete kar sakta hai. Expiry ke baad old operation continue ho sakta hai, isliye production safety bhi zaroori hai."
 
+# 🚀 Question 139: How Would You Implement Distributed Locking with Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+I would implement distributed locking in Redis using the `SET` command with `NX` and `PX` options. `NX` ensures the lock is acquired only if the key does not already exist, while `PX` sets a time-to-live (TTL) so the lock can expire if the lock owner crashes.
+
+I would generate a unique ownership token for every lock attempt and release the lock atomically only if the stored token matches the owner’s token. For long-running or correctness-critical operations, I would also consider lease renewal and fencing tokens.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo hamara MERN project multiple servers ya Node.js instances par run ho raha hai. Ek scheduled job ko sirf ek instance se run karwana hai. Agar dono instances same job ek saath chala dein, toh duplicate processing ho sakti hai.
+
+Redis distributed lock se hum aisa flow bana sakte hain:
+
+1. Node.js instance ek unique token generate karega.
+2. Redis mein `SET lock:key token NX PX 10000` command run karega.
+3. Agar response `OK` aaye, toh instance ne 10-second lock acquire kar liya.
+4. Agar lock pehle se kisi aur ke paas hai, toh `NX` ki wajah se doosra instance lock acquire nahi kar payega.
+5. Lock owner apna kaam complete hone par token verify karke lock release karega.
+6. Agar instance crash ho jaye, toh lock ki TTL expire ho sakti hai, taaki lock hamesha ke liye stuck na rahe.
+
+**Important:** Sirf lock acquire karna enough nahi hai. Lock release safely karna zaroori hai, aur lock expire hone ke baad purana owner operation continue kar sakta hai—yeh production mein important risk hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+      Node.js Instance A             Node.js Instance B
+              |                               |
+              | SET lock:job token-A          | SET lock:job token-B
+              | NX PX 10000                   | NX PX 10000
+              v                               v
+                    Redis Server
+                          |
+              +-----------+-----------+
+              |                       |
+        Lock acquired             Lock exists
+              |                       |
+              v                       v
+        Instance A runs         Instance B does
+        the critical job        not run the job
+              |
+              v
+      Release only if token matches
+              |
+              v
+         Lock deleted
+~~~
+
+## 💻 Practical Implementation — Node.js + Redis
+
+### Step 1: Install the package
+
+~~~bash
+npm install redis
+~~~
+
+### Step 2: Connect to Redis
+
+~~~javascript
+const { createClient } = require("redis");
+const { randomUUID } = require("node:crypto");
+
+const redis = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redis.on("error", (err) => {
+  console.error("Redis error:", err);
+});
+
+async function connectRedis() {
+  if (!redis.isOpen) {
+    await redis.connect();
+  }
+}
+~~~
+
+### Step 3: Acquire a lock
+
+~~~javascript
+async function acquireLock(lockKey, ttlMs = 10000) {
+  const token = randomUUID();
+
+  const result = await redis.set(lockKey, token, {
+    NX: true,
+    PX: ttlMs,
+  });
+
+  if (result !== "OK") {
+    return null; // Another instance may hold the lock
+  }
+
+  return token;
+}
+~~~
+
+Example:
+
+~~~javascript
+const token = await acquireLock("lock:monthly-report", 10000);
+
+if (!token) {
+  console.log("Job already locked by another instance");
+} else {
+  console.log("Lock acquired");
+}
+~~~
+
+Here, `NX` means set only when the key does not exist, and `PX` sets the expiry in milliseconds.
+
+### Step 4: Release the lock safely
+
+Lock delete karne se pehle check karo ki Redis mein stored token aapke token ke equal hai. Is comparison aur deletion ko ek Lua script mein atomically perform karo.
+
+~~~javascript
+const releaseLockScript = `
+  if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
+  else
+    return 0
+  end
+`;
+
+async function releaseLock(lockKey, token) {
+  return redis.eval(releaseLockScript, {
+    keys: [lockKey],
+    arguments: [token],
+  });
+}
+~~~
+
+**Token check kyu zaroori hai?** Agar Instance A ka lock expire ho gaya aur Instance B ne naya lock acquire kar liya, toh A ka plain `DEL lock:job` B ka lock delete kar sakta hai. Token check is problem ko prevent karta hai.
+
+### Step 5: Use the lock around a job
+
+~~~javascript
+async function runMonthlyReport() {
+  await connectRedis();
+
+  const lockKey = "lock:monthly-report";
+  const token = await acquireLock(lockKey, 10000);
+
+  if (!token) {
+    console.log("Another instance is processing this job");
+    return;
+  }
+
+  try {
+    await generateReport(); // Your application's business logic
+    console.log("Report generated successfully");
+  } finally {
+    await releaseLock(lockKey, token);
+  }
+}
+~~~
+
+`finally` normal success ya error ke baad release attempt karta hai. Production code mein Redis connection failures aur release errors ko bhi handle karna chahiye.
+
+## 📊 Important Points and Common Pitfalls
+
+| Feature | Explanation |
+|---|---|
+| `NX` | Lock key absent ho tabhi create karta hai |
+| `PX` | Lock expiry milliseconds mein set karta hai |
+| Unique token | Lock owner identify karta hai |
+| Atomic release | Token compare aur delete ek saath karta hai |
+| TTL | Crashed instance ke lock ko indefinitely stuck rehne se bachata hai |
+| Long-running job | TTL se zyada time lag sakta hai; lease renewal carefully design karna pad sakta hai |
+| Stale owner risk | Lock expire hone ke baad old instance ka work continue ho sakta hai |
+| Fencing token | Resource ko stale owners ke writes reject karne mein help karta hai, agar resource enforce kare |
+
+**Production note:** Lock TTL se zyada lamba kaam chalne par sirf token-checked release enough nahi hai. Correctness-critical operations ke liye lease renewal, fencing tokens, ya resource-side concurrency checks consider karo. Simple Redis lock ko har distributed system mein perfect mutual exclusion ki guarantee samajhna sahi nahi hoga.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I would acquire a Redis distributed lock using `SET key token NX PX ttl`. The `NX` option prevents acquiring an existing lock, and `PX` provides an expiration time. I would release it with a Lua script that checks the unique token before deleting the key. For long-running or critical operations, I would also account for TTL expiry, lease renewal, and fencing tokens."
+- **Hinglish Quick Memory:** "Redis mein `SET lock:key token NX PX ttl` se lock acquire karte hain. Unique token owner ko identify karta hai. Release karte waqt Lua script mein token match karke hi lock delete karte hain. Production mein TTL, long-running jobs aur stale owner risk ko handle karna bhi important hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
