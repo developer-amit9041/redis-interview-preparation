@@ -5034,6 +5034,55 @@ These settings are illustrative. Actual snapshot schedule, fsync behavior, and c
 - **English Pitch:** "RDB saves point-in-time snapshots, which are often compact and quick to load, while AOF logs write operations and replays them during recovery. RDB may lose changes since the last snapshot; AOF's loss window depends on its fsync policy. Redis can use either or both according to durability and recovery requirements."
 - **Hinglish Quick Memory:** RDB data ki periodic photo hai, AOF write commands ki diary. RDB se restore usually fast hota hai, lekin snapshot ke baad changes lose ho sakte hain. AOF ka data-loss risk fsync policy par depend karta hai; file replay aur size ka cost ho sakta hai. Dono saath bhi configure kiye ja sakte hain.
 
+# 🚀 Question 60: Which Is Faster: RDB or AOF?
+
+## 📝 Answer (English — Interview Definition)
+
+RDB is generally faster for loading the dataset during Redis startup or recovery because Redis can load a point-in-time snapshot rather than replaying a long sequence of write operations. Runtime performance depends on the workload and configuration: RDB's background snapshotting can add fork and copy-on-write overhead, while AOF overhead depends significantly on the configured `appendfsync` policy. For example, `appendfsync always` can add more write latency than `everysec`.
+
+There is no universal winner for every workload. Measure the system with representative load tests when comparing ongoing throughput or latency.
+
+## 🗣️ Answer in Hinglish
+
+Bhai, speed ko do alag points par samajhna chahiye:
+
+- **Startup / Recovery Speed:** RDB generally faster hota hai, kyunki Redis snapshot load karta hai. AOF ko recorded write operations replay karne pad sakte hain.
+- **Normal Runtime Write Performance:** Yeh configuration aur workload par depend karta hai. AOF ka `appendfsync always` har write par disk sync kar sakta hai, jis se latency badh sakti hai. `everysec` ka trade-off alag hota hai. RDB ke background snapshots bhi fork aur memory overhead cause kar sakte hain.
+
+Isliye interview mein kehna best hai: **RDB often wins startup recovery speed mein; runtime performance ko actual workload par benchmark karna chahiye.**
+
+## 💻 Practical Code Example & Latency Measurement
+
+~~~javascript
+// A small timing check shows Redis command latency from this client,
+// but it does not by itself compare RDB and AOF fairly.
+console.time("Redis SET latency");
+
+await redis.set(
+  "product:101",
+  JSON.stringify({ name: "Laptop", price: 50000 })
+);
+
+console.timeEnd("Redis SET latency");
+~~~
+
+**Production benchmark note:** RDB vs AOF compare karne ke liye representative dataset size, read/write mix, concurrency, storage device, fsync policy, and snapshot configuration ke saath sustained load test run karo. Ek single `SET` timing se persistence-mode performance ka reliable conclusion nahi nikalta.
+
+## 📋 Performance Selection Matrix
+
+| Performance Metric | General Expectation | Important Caveat |
+|---|---|---|
+| Startup / recovery loading | RDB is often faster. | Depends on dataset size and recovery configuration. |
+| Runtime write overhead | Depends on persistence configuration. | AOF fsync policy and RDB snapshot/fork overhead both matter. |
+| `appendfsync always` | Can increase write latency. | Actual impact depends on storage performance and workload. |
+| AOF with `everysec` | Common performance/durability balance. | Must still be benchmarked for the deployment. |
+| RDB + AOF together | Offers both persistence options. | Uses additional storage and has operational trade-offs. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "RDB is generally faster for startup recovery because it loads a point-in-time snapshot. Runtime performance depends on workload and configuration: AOF fsync settings can add write latency, while RDB snapshotting can add fork and memory overhead. Benchmark representative workloads before choosing."
+- **Hinglish Quick Memory:** Startup par RDB aksar fast hota hai. Lekin normal write speed configuration par depend karti hai—AOF ka `appendfsync` aur RDB ka background snapshot overhead dono matter karte hain. Final choice benchmark se karo.
+
 ---
 
 *More answers will be added in question order, using this format.*
