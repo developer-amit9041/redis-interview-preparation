@@ -5460,6 +5460,161 @@ Useful monitoring fields:
 - **English Pitch:** "`SAVE` writes an RDB snapshot synchronously and blocks Redis command processing until it completes. `BGSAVE` performs the snapshot in a background child process, allowing Redis to generally continue serving requests. `BGSAVE` can still cause fork, memory, CPU, and disk I/O overhead."
 - **Hinglish Quick Memory:** `SAVE` snapshot ke dauran Redis requests block kar sakta hai. `BGSAVE` child process se background snapshot banata hai, isliye main process generally requests handle karta rehta hai. Lekin large dataset par fork aur memory overhead phir bhi ho sakta hai.
 
+## 🔥 Level 5 — Redis Pub/Sub
+
+# 🚀 Question 67: What Is Redis Pub/Sub?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis Pub/Sub (Publish/Subscribe) is a messaging mechanism that lets applications exchange messages in real time. A publisher sends a message to a channel, and all subscribers currently listening to that channel receive the message.
+
+It is useful for real-time notifications, chat events, live dashboards, and communication between Node.js services. Redis Pub/Sub is ephemeral: it does not store messages for offline subscribers and provides at-most-once delivery.
+
+## 🗣️ Answer in Hinglish
+
+Redis Pub/Sub ek messaging system hai jisme ek application message send karti hai aur jo applications us channel ko subscribe kar chuki hoti hain, unhe message receive hota hai.
+
+Iske 3 main concepts hain:
+
+- **Publisher:** Message send karta hai.
+- **Channel:** Jis channel par message publish hota hai.
+- **Subscriber:** Channel ko subscribe karke messages receive karta hai.
+
+Example: E-commerce application mein order place hone par publisher `order_notifications` channel par message send karta hai. Jo notification service aur live dashboard us channel ko subscribe karte hain, unhe message milta hai—provided woh publish ke waqt subscribed hon.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+                 [ Publisher ]
+              (Node.js Order Service)
+                       |
+                       | PUBLISH order_notifications
+                       v
+              [ Redis Pub/Sub Hub ]
+                       |
+             +---------+---------+
+             |                   |
+             v                   v
+      [ Subscriber 1 ]    [ Subscriber 2 ]
+   (Notification Service)   (Live Dashboard)
+~~~
+
+Redis same channel ke currently active subscribers ko message broadcast karta hai.
+
+## 💻 Practical Node.js Example
+
+Install the Redis client:
+
+~~~bash
+npm install redis
+~~~
+
+### Step 1: Publisher — `publisher.js`
+
+Publisher channel par message send karega.
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const publisher = createClient({
+    url: "redis://localhost:6379"
+  });
+
+  publisher.on("error", (error) => console.error("Redis Publisher Error:", error));
+  await publisher.connect();
+
+  const message = {
+    orderId: 101,
+    status: "Order Placed"
+  };
+
+  const subscriberCount = await publisher.publish(
+    "order_notifications",
+    JSON.stringify(message)
+  );
+
+  console.log("Message published.");
+  console.log("Subscribers receiving the message:", subscriberCount);
+
+  await publisher.quit();
+}
+
+main().catch(console.error);
+~~~
+
+### Step 2: Subscriber — `subscriber.js`
+
+Subscriber channel ko listen karega. Is process ko publisher run karne se pehle start karein.
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const subscriber = createClient({
+    url: "redis://localhost:6379"
+  });
+
+  subscriber.on("error", (error) => console.error("Redis Subscriber Error:", error));
+  await subscriber.connect();
+
+  await subscriber.subscribe("order_notifications", (message) => {
+    try {
+      const order = JSON.parse(message);
+      console.log("Notification received:", order);
+    } catch (error) {
+      console.error("Invalid notification payload:", error);
+    }
+  });
+
+  console.log("Waiting for order notifications...");
+}
+
+main().catch(console.error);
+~~~
+
+### Step 3: Run the Code
+
+Terminal 1 — start subscriber:
+
+~~~bash
+node subscriber.js
+~~~
+
+Terminal 2 — publish a message:
+
+~~~bash
+node publisher.js
+~~~
+
+Example subscriber output:
+
+~~~text
+Waiting for order notifications...
+Notification received: { orderId: 101, status: 'Order Placed' }
+~~~
+
+Redis server running hona chahiye, aur subscriber ko message publish hone se pehle subscribe karna chahiye. `publish()` ka return value batata hai ki kitne subscribers ko message deliver hua.
+
+## ⚙️ Important Characteristics
+
+| Characteristic | Redis Pub/Sub Behavior |
+|---|---|
+| Communication | Publisher → Channel → Active subscribers |
+| Delivery | Real-time broadcast to current subscribers |
+| Message persistence | Messages are not stored for later delivery. |
+| Subscriber offline | Messages published while disconnected are missed. |
+| Delivery guarantee | At-most-once; a missed message is not automatically retried. |
+| Typical use cases | Notifications, chat events, live updates, dashboards |
+| Need durable messages? | Consider Redis Streams or another durable messaging system. |
+
+**Important:** Redis Pub/Sub messages ko store nahi karta. Agar subscriber offline hai jab message publish hota hai, toh reconnect hone par purana message automatically receive nahi karega. Agar messages persist karne aur baad mein process karne hain, toh Redis Streams better fit ho sakta hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Pub/Sub is a real-time messaging mechanism where publishers send messages to channels and active subscribers receive them. It is useful for notifications, chat events, and live updates, but it provides at-most-once delivery and does not persist messages for offline subscribers."
+- **Hinglish Quick Memory:** Publisher message bhejta hai, Redis us channel ke active subscribers ko broadcast karta hai. Lekin subscriber offline ho toh message miss ho sakta hai, kyunki Redis Pub/Sub messages ko store nahi karta.
+
 ---
 
 *More answers will be added in question order, using this format.*
