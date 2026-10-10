@@ -11473,6 +11473,134 @@ Official reference: https://socket.io/docs/v4/redis-adapter/
 - **English Pitch:** "I use the Socket.IO Redis adapter to scale real-time applications across multiple Node.js instances. Redis Pub/Sub forwards broadcast packets between servers, so clients in the same room can receive events regardless of which instance they are connected to. The adapter does not persist messages, and sticky sessions may still be needed when HTTP long-polling is enabled."
 - **Hinglish Quick Memory:** "Multiple Socket.IO servers ko sync karne ke liye Redis adapter use karte hain. Ek server ka room broadcast Redis Pub/Sub ke through doosre servers tak jaata hai. Adapter messages store nahi karta; scaling setup mein sticky sessions aur Redis security ka bhi dhyan rakhna chahiye."
 
+# 🚀 Question 116: How Do You Use Redis Pub/Sub in Microservices?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis Pub/Sub can be used for lightweight, real-time communication between microservices. A service publishes an event to a named channel, and other services subscribed to that channel receive the message while they are connected. It helps decouple services, but it does not persist messages or provide replay for offline subscribers.
+
+## 🗣️ Answer in Hinglish
+
+Microservices architecture mein har service apna specific kaam karti hai. Redis Pub/Sub ki help se ek service event publish kar sakti hai aur us channel ko subscribe karne wali doosri services event receive kar sakti hain.
+
+**Example:** Order Service order create hone par `order_events` channel par event publish karti hai. Notification Service aur Analytics Service is channel ko subscribe karke event receive kar sakti hain.
+
+1. Publisher service Redis channel par message publish karti hai.
+2. Redis message ko currently connected subscribers tak broadcast karta hai.
+3. Subscribers apna relevant kaam perform karte hain.
+4. Agar koi subscriber offline hai, toh woh message miss kar sakta hai—Redis Pub/Sub us message ko store nahi karta.
+
+**Important:** Pub/Sub best hai jab lightweight, live event broadcast chahiye. Agar order ya payment events miss nahi hone chahiye, toh Redis Streams, Kafka, ya durable message broker consider karo.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+                 Order Service
+                      |
+                      | PUBLISH order_events
+                      v
+                Redis Pub/Sub
+                      |
+              +-------+-------+
+              |               |
+              v               v
+     Notification Service  Analytics Service
+              |               |
+              v               v
+        Send notification  Update metrics
+
+  Note: Offline subscribers can miss published messages.
+~~~
+
+## 💻 Practical Node.js Example (node-redis v4)
+
+### A. Publisher service — Order Service
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function startPublisher() {
+  const publisher = createClient({ url: process.env.REDIS_URL });
+
+  publisher.on("error", (err) => {
+    console.error("Redis publisher error:", err.message);
+  });
+
+  await publisher.connect();
+
+  await publisher.publish(
+    "order_events",
+    JSON.stringify({
+      type: "order_created",
+      orderId: "101",
+      occurredAt: new Date().toISOString(),
+    })
+  );
+
+  await publisher.quit();
+}
+
+startPublisher().catch((err) => {
+  console.error("Publisher failed:", err);
+  process.exitCode = 1;
+});
+~~~
+
+### B. Subscriber service — Notification Service
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function startSubscriber() {
+  const subscriber = createClient({ url: process.env.REDIS_URL });
+
+  subscriber.on("error", (err) => {
+    console.error("Redis subscriber error:", err.message);
+  });
+
+  await subscriber.connect();
+
+  await subscriber.subscribe("order_events", async (message) => {
+    try {
+      const event = JSON.parse(message);
+
+      if (event.type === "order_created") {
+        console.log("Notify customer for order:", event.orderId);
+        // Call your notification provider here.
+      }
+    } catch (err) {
+      console.error("Invalid order event:", err.message);
+    }
+  });
+
+  // Keep this long-running service alive; manage graceful shutdown in production.
+}
+
+startSubscriber().catch((err) => {
+  console.error("Subscriber failed:", err);
+  process.exitCode = 1;
+});
+~~~
+
+Publisher aur subscriber separate microservices/processes hote hain, aur dono ko Redis ke same reachable deployment/channel naming ke saath configure karna hota hai. Subscriber service ko running rehna chahiye taaki woh live events receive kar sake.
+
+## 📊 Important Points
+
+| Concept | Explanation |
+|---|---|
+| Publisher | Event/message channel par publish karta hai |
+| Subscriber | Channel subscribe karke messages receive karta hai |
+| Channel | Services ke beech named communication route |
+| Loose coupling | Publisher ko subscribers ke internal implementation ka direct knowledge zaroori nahi |
+| Persistence | Redis Pub/Sub messages store nahi karta |
+| Offline subscriber | Message miss kar sakta hai |
+| Reliable event processing | Durability chahiye toh Redis Streams/Kafka/durable broker consider karo |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I use Redis Pub/Sub for lightweight real-time communication between microservices. For example, an Order Service publishes an event and Notification or Analytics services subscribe to it. Since Pub/Sub is not persistent, I use Redis Streams, Kafka, or a durable broker when missed events must be recovered."
+- **Hinglish Quick Memory:** "Ek microservice Redis channel par event publish karti hai aur doosri subscribed services usse receive karti hain. Isse services loosely coupled rehti hain, lekin Pub/Sub message store nahi karta. Reliable delivery aur replay chahiye toh Streams ya durable broker use karo."
+
 ---
 
 *More answers will be added in question order, using this format.*
