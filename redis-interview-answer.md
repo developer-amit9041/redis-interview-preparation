@@ -8336,6 +8336,111 @@ Yeh commands configured masters aur ek named master ke replicas ki information i
 - **English Pitch:** "We use Redis Sentinel for high availability. It monitors primary and replica nodes, detects failures, coordinates failover, helps clients discover the current primary, and can send notifications. It reduces manual recovery work but does not eliminate every interruption or data-loss risk."
 - **Hinglish Quick Memory:** "Sentinel isliye use hota hai taaki primary fail hone par replica ko promote karne, new primary discover karne aur monitoring automate karne mein help mile. Lekin application ko reconnect aur retry handle karna hota hai."
 
+# 🚀 Question 93: Redis Sentinel vs Redis Cluster?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Sentinel** provides high availability for a non-clustered Redis primary-replica setup. It monitors Redis instances, detects failures, performs automatic failover, and helps clients discover the current primary. Sentinel does not shard or distribute data.
+
+**Redis Cluster** provides data sharding across multiple primary nodes and also supports replicas and automatic failover. It distributes keys across 16,384 hash slots, allowing a dataset to be spread across multiple nodes.
+
+The main difference is: **Sentinel focuses on high availability for a primary-replica deployment, while Redis Cluster provides sharding plus high availability.**
+
+## 🗣️ Answer in Hinglish
+
+Bhai, Redis Sentinel aur Redis Cluster dono availability improve karne mein help karte hain, lekin dono ka main purpose alag hai.
+
+- **Redis Sentinel:** Primary Redis server ko monitor karta hai. Primary fail ho jaaye, toh suitable replica ko promote karke failover kar sakta hai. Yeh data ko multiple primaries mein shard nahi karta.
+- **Redis Cluster:** Data ko multiple primary nodes mein distribute karta hai. Har primary kuch hash slots handle karta hai, aur replicas failover ke liye configure kiye ja sakte hain.
+
+### Real-world example
+
+Maan lo MERN application mein Redis session/cache store karta hai:
+
+- Agar dataset ek primary-replica setup mein fit hota hai aur high availability chahiye, toh Sentinel suitable ho sakta hai.
+- Agar dataset ko multiple Redis primaries mein distribute karna hai aur horizontal scaling chahiye, toh Redis Cluster consider kar sakte hain.
+
+## 🏗️ Architecture Diagram
+
+### Redis Sentinel — High Availability
+
+~~~text
+             Sentinel Nodes
+          monitor and coordinate
+                    |
+                    v
+             Redis Primary
+                    |
+           replication to replica
+                    v
+             Redis Replica
+
+Primary fails -> Sentinel coordinates failover
+                and promotes a suitable replica
+~~~
+
+### Redis Cluster — Sharding + Availability
+
+~~~text
+                Redis Cluster
+          +----------+----------+
+          |          |          |
+          v          v          v
+       Primary A  Primary B  Primary C
+       Slots set  Slots set  Slots set
+          |          |          |
+          v          v          v
+       Replica A  Replica B  Replica C
+
+Keys are distributed across hash slots.
+Each shard can have replicas for failover.
+~~~
+
+## 💻 Practical Redis CLI Commands
+
+### Check Sentinel status
+
+Run these against a Sentinel instance (commonly port 26379):
+
+~~~bash
+redis-cli -p 26379 SENTINEL masters
+redis-cli -p 26379 SENTINEL get-master-addr-by-name mymaster
+~~~
+
+The second command returns the address of the primary Sentinel currently recognizes for the configured master name.
+
+### Check Redis Cluster status
+
+Run these against a Redis Cluster node:
+
+~~~bash
+redis-cli -c CLUSTER INFO
+redis-cli -c CLUSTER NODES
+~~~
+
+- `CLUSTER INFO` shows cluster health and slot-related information.
+- `CLUSTER NODES` lists nodes, roles, and slot assignments.
+- `-c` enables Redis CLI cluster-mode redirection handling.
+
+These commands inspect the setup; they do not configure Sentinel or create a cluster.
+
+## 📊 Comparison Table
+
+| Feature | Redis Sentinel | Redis Cluster |
+|---|---|---|
+| Main purpose | High availability and failover | Sharding plus high availability |
+| Data sharding | No | Yes |
+| Data layout | Primary-replica dataset | Dataset split across hash slots and primaries |
+| Failover | Sentinel coordinates promotion of a replica | Cluster performs failover for a failed primary shard when eligible replicas are available |
+| Client behavior | Client should discover the current primary through Sentinel | Client should be cluster-aware and handle redirects |
+| Multi-key operations | Depends on normal Redis command rules | Keys involved in many multi-key operations must map to the same hash slot |
+| Best fit | A dataset that fits on one primary and needs failover | Horizontal scaling across multiple primaries |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Sentinel provides monitoring and automatic failover for a primary-replica deployment, but it does not shard data. Redis Cluster distributes keys across multiple primary nodes using hash slots and also supports replica-based failover. I would choose Sentinel for high availability in a non-clustered setup and Cluster when I need horizontal data sharding."
+- **Hinglish Quick Memory:** "Sentinel failover aur monitoring ke liye hai; data shard nahi karta. Redis Cluster data ko multiple primaries mein distribute karta hai aur replicas ke through failover bhi support karta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
