@@ -11601,6 +11601,173 @@ Publisher aur subscriber separate microservices/processes hote hain, aur dono ko
 - **English Pitch:** "I use Redis Pub/Sub for lightweight real-time communication between microservices. For example, an Order Service publishes an event and Notification or Analytics services subscribe to it. Since Pub/Sub is not persistent, I use Redis Streams, Kafka, or a durable broker when missed events must be recovered."
 - **Hinglish Quick Memory:** "Ek microservice Redis channel par event publish karti hai aur doosri subscribed services usse receive karti hain. Isse services loosely coupled rehti hain, lekin Pub/Sub message store nahi karta. Reliable delivery aur replay chahiye toh Streams ya durable broker use karo."
 
+# 🚀 Question 117: How Do You Handle Redis Connection Failure in Node.js?
+
+## 📝 Answer (English — Interview Definition)
+
+In Node.js, Redis connection failures are handled by listening for client errors, configuring a reconnection strategy with exponential backoff and a capped delay, and gracefully handling failed commands.
+
+For applications that use Redis as a cache, the application can fall back to the primary database when Redis is unavailable. For critical features such as sessions, rate limiting, or distributed locks, the fallback policy must be designed according to the application's security and consistency requirements.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo hamari MERN application Node.js se Redis connect karti hai, lekin Redis server down ho jaata hai ya network issue aa jaata hai. Aise mein hume application ko crash hone se bachana aur failure ko properly handle karna hota hai.
+
+Mainly ye steps follow karte hain:
+
+1. **Error listener:** Redis client ke errors handle karne ke liye `error` event listener lagate hain.
+2. **Reconnect strategy:** Temporary connection failure par Redis ko dobara connect karne ki koshish karte hain.
+3. **Backoff:** Har retry ke beech delay badhate hain, aur delay ko cap karte hain.
+4. **Graceful fallback:** Agar Redis sirf caching ke liye use ho raha hai, toh Redis failure par MongoDB se data fetch kar sakte hain.
+5. **Logging and monitoring:** Errors, reconnect attempts aur connection status monitor karte hain.
+
+**Important:** Agar Redis session management, security rate limiting ya distributed locking ke liye required hai, toh bina soche-samjhe Redis ko bypass nahi karna chahiye. Failure policy feature ke risk par depend karti hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        Node.js / Express API
+                 |
+                 v
+            Redis Client
+                 |
+           Connection fails
+                 |
+                 v
+       Error Listener + Logging
+                 |
+                 v
+       Reconnect with Backoff
+            /           \
+           /             \
+     Reconnected       Still unavailable
+          |                  |
+          v                  v
+   Resume Redis use    Apply fallback policy
+                             |
+                    +--------+---------+
+                    |                  |
+                    v                  v
+              Cache feature       Critical feature
+              Read MongoDB        Apply security-
+              as fallback         appropriate policy
+~~~
+
+## 💻 Practical Node.js Example (node-redis)
+
+Install the Redis client:
+
+~~~bash
+npm install redis
+~~~
+
+### A. Configure connection handling and reconnection
+
+~~~javascript
+const { createClient } = require("redis");
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL,
+  socket: {
+    reconnectStrategy(retries) {
+      // Stop automatic retries after the configured number of attempts.
+      if (retries > 8) {
+        return new Error("Redis reconnect retry limit reached");
+      }
+
+      // Exponential backoff with a maximum delay of 3 seconds.
+      return Math.min(100 * 2 ** retries, 3000);
+    },
+  },
+});
+
+// Attach an error listener; node-redis emits client errors here.
+redisClient.on("error", (err) => {
+  console.error("Redis client error:", err.message);
+});
+
+redisClient.on("reconnecting", () => {
+  console.warn("Redis reconnecting...");
+});
+
+redisClient.on("ready", () => {
+  console.log("Redis connection is ready");
+});
+
+async function connectRedis() {
+  try {
+    await redisClient.connect();
+  } catch (err) {
+    console.error("Initial Redis connection failed:", err.message);
+    // The application can remain available if Redis is an optional cache.
+    // Alert/reinitialize the client according to your service's retry policy.
+  }
+}
+
+connectRedis();
+~~~
+
+**Explanation:**
+- `error` listener logs client errors.
+- `reconnecting` and `ready` events help monitor connection state.
+- `reconnectStrategy` retries temporary failures with increasing delays.
+- Returning an `Error` stops the automatic reconnect strategy after the retry limit, so production services should alert and define how recovery is initiated.
+
+### B. Fall back to MongoDB when Redis is used only as a cache
+
+~~~javascript
+async function getProduct(id) {
+  const cacheKey = `product:${id}`;
+
+  // Attempt cache lookup when the client is ready.
+  if (redisClient.isReady) {
+    try {
+      const cached = await redisClient.get(cacheKey);
+      if (cached !== null) {
+        return JSON.parse(cached);
+      }
+    } catch (err) {
+      console.error("Redis cache read failed:", err.message);
+      // Continue to the database because this is an optional cache.
+    }
+  }
+
+  // MongoDB remains the source of truth in this cache-aside example.
+  const product = await Product.findById(id);
+
+  // Cache the result only when Redis is ready; cache failure should not
+  // prevent returning a successful database result.
+  if (product && redisClient.isReady) {
+    try {
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(product));
+    } catch (err) {
+      console.error("Redis cache write failed:", err.message);
+    }
+  }
+
+  return product;
+}
+~~~
+
+Is example mein `Product` Mongoose model hai. Redis unavailable hone par cache read/write fail ho sakta hai, lekin application MongoDB se product fetch karke response de sakti hai.
+
+## 📊 Connection Failure Handling Checklist
+
+| Technique | Why it matters |
+|---|---|
+| `error` event listener | Redis client errors ko handle/log karna |
+| Reconnection strategy | Temporary network/server failure se recover karna |
+| Exponential backoff | Rapid repeated reconnect attempts kam karna |
+| Connection state events | `ready` aur `reconnecting` status monitor karna |
+| Cache fallback | Optional cache failure mein primary database se data fetch karna |
+| Monitoring and alerts | Prolonged outage aur repeated failures detect karna |
+| Critical-feature policy | Sessions, locks, and rate limiting ko unsafe way mein bypass na karna |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I handle Redis connection failures in Node.js with an error listener, a reconnect strategy using exponential backoff, monitoring, and command-level error handling. If Redis is only a cache, I fall back to the primary database. For security-critical features, I use an explicit fail-open or fail-closed policy based on the risk."
+- **Hinglish Quick Memory:** "Redis connection fail ho toh error listener, reconnect strategy, backoff aur monitoring use karte hain. Cache ke liye MongoDB fallback ho sakta hai, lekin sessions, locks aur rate limiting ke liye fallback carefully design karna chahiye."
+
 ---
 
 *More answers will be added in question order, using this format.*
