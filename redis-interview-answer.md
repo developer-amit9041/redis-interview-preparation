@@ -13321,6 +13321,134 @@ Redis mein `redis-cli --hotkeys` jaisi command help kar sakti hai, lekin iska ou
 - **English Pitch:** "A hot key in Redis is a key that receives a disproportionately high volume of traffic and can overload the node responsible for it. I would identify hot keys through monitoring and traffic analysis, then consider local caching, read replicas, key sharding, or request coalescing depending on whether the workload is read-heavy or write-heavy."
 - **Hinglish Quick Memory:** "Hot key woh key hai jis par bahut zyada requests aati hain. Isse ek Redis node overloaded aur latency high ho sakti hai. Problem identify karne ke baad local cache, read replicas, key sharding ya request coalescing use kar sakte hain—solution workload par depend karta hai."
 
+# 🚀 Question 132: What Is the Big Key / Large Key Problem in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+The **big key problem in Redis** occurs when a single key stores a very large value or a data structure containing a huge number of elements. Operations on such keys can cause high latency, increased memory usage, network overhead, replication delays, and slower persistence or deletion.
+
+We can identify big keys using tools such as `redis-cli --bigkeys` and reduce their impact by splitting data across smaller keys, processing collections incrementally, and using asynchronous deletion with `UNLINK` where appropriate.
+
+## 🗣️ Answer in Hinglish
+
+Redis mein **big key** ka matlab hai ek aisi key jiske andar bahut zyada data stored ho.
+
+Example ke liye, ek Redis key ke andar:
+
+- Bahut bada JSON string ho.
+- Hash mein lakhon fields hon.
+- List mein bahut saare elements hon.
+- Set ya Sorted Set mein bahut zyada members hon.
+
+Aisi key par operation karne se Redis ko zyada memory handle karni pad sakti hai. Agar hum poori list ya hash ek hi baar read ya delete karte hain, toh operation slow ho sakta hai aur doosri requests ki latency bhi badh sakti hai.
+
+### Real-World MERN Example
+
+Maan lo Node.js application saare users ki activity ek hi Redis key mein store kar rahi hai:
+
+~~~text
+activity:all_users
+~~~
+
+Is key mein millions of records ya elements ho jaate hain. Isse manage karna costly ho sakta hai.
+
+Better approach: data ko user-wise ya manageable batches mein divide karna, jaise:
+
+~~~text
+activity:user:101
+activity:user:102
+activity:user:103
+~~~
+
+Isse ek hi key par bahut zyada data concentrate hone ka risk kam hota hai. Key design actual access pattern ke hisaab se karni chahiye.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+                 Redis Server
+                      |
+             +--------+--------+
+             |                 |
+             v                 v
+     Small / normal key     Big key
+                             |
+                     +-------+-------+
+                     |               |
+                     v               v
+              High memory use   Expensive operations
+                                     |
+                                     v
+                            Increased latency
+~~~
+
+## 💻 Practical Redis CLI Examples
+
+### A. Find big keys
+
+~~~bash
+redis-cli --bigkeys
+~~~
+
+Yeh Redis keys scan karke har supported data type ke liye large keys identify karne mein help karta hai. Output data structure ke size/element counts ke perspective se useful hota hai.
+
+Memory ke basis par large keys identify karne ke liye, agar aapka `redis-cli` support karta hai:
+
+~~~bash
+redis-cli --memkeys
+~~~
+
+Specific key ka memory usage check karo:
+
+~~~bash
+redis-cli MEMORY USAGE activity:all_users
+~~~
+
+Command memory usage bytes mein return karti hai, agar key exist karti hai.
+
+### B. Large collection ko ek saath read na karo
+
+Potentially expensive pattern:
+
+~~~bash
+redis-cli HGETALL users:all
+~~~
+
+Agar hash bahut large hai, toh saare fields ek baar mein return honge. Alternative ke roop mein `HSCAN` se batches mein fields read kar sakte ho:
+
+~~~bash
+redis-cli HSCAN users:all 0 COUNT 100
+~~~
+
+`COUNT 100` ek hint hai, fixed result limit nahi. `HSCAN` ko multiple calls mein continue karna hota hai, returned cursor ke saath.
+
+### C. Large key delete karna
+
+~~~bash
+redis-cli UNLINK activity:all_users
+~~~
+
+`UNLINK` key ko keyspace se remove karta hai aur memory freeing ko background mein karne deta hai, jisse large values delete karte waqt synchronous blocking work kam ho sakta hai.
+
+**Note:** `UNLINK` har workload ko instantly free nahi karta; memory reclamation background mein ho sakti hai.
+
+## 📊 Important Points and Solutions
+
+| Problem | Possible solution |
+|---|---|
+| One key stores too many elements | Split data into smaller, logically grouped keys |
+| High memory usage | Inspect with `MEMORY USAGE` and memory-analysis tools |
+| Full collection read is expensive | Use `HSCAN`, `SSCAN`, or `ZSCAN` in batches |
+| Deleting a large value causes latency | Consider `UNLINK` instead of synchronous `DEL` |
+| Large keys slow replication or persistence | Reduce key size and monitor workload, latency and memory |
+| Unsure which keys are largest | Run `redis-cli --bigkeys` or `redis-cli --memkeys` if supported |
+
+**Interview distinction:** A *big key* usually refers to one key with a very large value or collection. A *hot key* is a key receiving a disproportionately high volume of requests. A key can be big, hot, both, or neither.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "The big key problem occurs when a Redis key contains a very large value or collection. It can increase memory usage, command latency, and replication or persistence overhead. I would detect large keys with `redis-cli --bigkeys`, inspect memory using `MEMORY USAGE`, process collections incrementally with scan commands, and consider splitting data or using `UNLINK` for large-key deletion."
+- **Hinglish Quick Memory:** "Big key ka matlab ek Redis key mein bahut zyada data hona. Isse memory use aur latency badh sakti hai. `--bigkeys` se identify karo, `MEMORY USAGE` se memory check karo, `HSCAN` jaise commands se batches mein read karo, aur large key delete karne ke liye `UNLINK` consider karo."
+
 ---
 
 *More answers will be added in question order, using this format.*
