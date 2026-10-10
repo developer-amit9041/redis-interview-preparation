@@ -9295,6 +9295,187 @@ Ye sirf sharding concept samjhane ke liye simplified example hai. Production Red
 - **English Pitch:** "Replication copies data from a primary to replicas, improving redundancy and supporting failover. Sharding partitions data across multiple nodes to scale storage and workload horizontally. Redis Cluster combines sharding with replication, so it can support both horizontal scaling and failover."
 - **Hinglish Quick Memory:** "Replication mein same data ki copies banti hain; sharding mein data alag-alag nodes par divide hota hai. Replication redundancy aur failover mein help karti hai, jabki sharding capacity aur workload scale karne mein. Redis Cluster dono techniques combine kar sakta hai."
 
+## 🔥 Level 8 — Node.js + Redis — VERY IMPORTANT for You
+
+# 🚀 Question 103: How Do You Connect Redis with Node.js?
+
+## 📝 Answer (English — Interview Definition)
+
+We can connect Redis with Node.js using the official `redis` npm package, also known as `node-redis`. We create a Redis client using `createClient()`, configure the connection URL, listen for connection errors, and call `connect()` before executing Redis commands.
+
+Once connected, Node.js can use Redis for caching, session storage, counters, rate limiting, and other fast data operations.
+
+## 🗣️ Answer in Hinglish
+
+Node.js ko Redis ke saath connect karne ke liye hum `redis` npm package install karte hain.
+
+Process simple hai:
+
+1. Redis package install karo.
+2. `createClient()` se Redis client banao.
+3. Redis server ka URL configure karo.
+4. `client.connect()` se connection establish karo.
+5. `set()` aur `get()` jaise methods se data store aur read karo.
+
+**Real-world MERN example:** Jab user profile MongoDB se fetch hoti hai, toh hum uska data Redis cache mein store kar sakte hain, taaki next request par baar-baar MongoDB query na karni pade—jab tak cached data valid hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        React Frontend
+              |
+              v
+        Node.js / Express
+              |
+              | redis npm package
+              v
+          Redis Client
+              |
+              v
+         Redis Server
+              |
+      +-------+-------+
+      |               |
+      v               v
+   SET / GET       Cache Data
+~~~
+
+Node.js Redis client ke through Redis server se communicate karta hai. Redis MongoDB ka replacement zaroori nahi hai; MERN application mein dono apne different roles ke liye use ho sakte hain.
+
+## 💻 Practical Code Example — Node.js + Redis
+
+### Step 1: Install the Redis package
+
+~~~bash
+npm install redis dotenv express
+~~~
+
+Ensure Redis server bhi running ho. Local Redis server ka default URL commonly `redis://localhost:6379` hota hai.
+
+### Step 2: Add the connection URL
+
+`.env` file:
+
+~~~env
+REDIS_URL=redis://localhost:6379
+PORT=5000
+~~~
+
+### Step 3: Create a Redis client
+
+Create `redisClient.js`:
+
+~~~javascript
+const { createClient } = require("redis");
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redisClient.on("error", (err) => {
+  console.error("Redis Client Error:", err);
+});
+
+module.exports = redisClient;
+~~~
+
+### Step 4: Connect Redis with Express
+
+Create `server.js`:
+
+~~~javascript
+require("dotenv").config();
+
+const express = require("express");
+const redisClient = require("./redisClient");
+
+const app = express();
+app.use(express.json());
+
+app.get("/cache-demo", async (req, res, next) => {
+  try {
+    await redisClient.set("user:1", "Amit", {
+      EX: 60, // Expire after 60 seconds
+    });
+
+    const user = await redisClient.get("user:1");
+
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+async function startServer() {
+  try {
+    // Connect once before accepting requests
+    await redisClient.connect();
+
+    app.listen(process.env.PORT || 5000, () => {
+      console.log("Server running on port", process.env.PORT || 5000);
+    });
+  } catch (error) {
+    console.error("Failed to start application:", error);
+    process.exitCode = 1;
+  }
+}
+
+startServer();
+~~~
+
+### Step 5: Run the application
+
+~~~bash
+node server.js
+~~~
+
+Browser ya Postman se request bhejo:
+
+~~~text
+GET http://localhost:5000/cache-demo
+~~~
+
+Expected response:
+
+~~~json
+{
+  "user": "Amit"
+}
+~~~
+
+Yahan `set()` Redis mein `user:1` key par value store karta hai, aur `get()` us value ko read karta hai. `EX: 60` ka matlab key ko 60 seconds ka expiry time dena hai.
+
+**Production note:** Ek shared Redis client ko application startup par connect karo; har API request par naya client mat banao. Production mein graceful shutdown, connection failures, retries aur Redis credentials/TLS configuration bhi handle karo.
+
+## 📊 Important Redis Commands in Node.js
+
+| Node.js method | Purpose |
+|---|---|
+| `createClient()` | Redis client create karta hai |
+| `connect()` | Redis server se connection establish karta hai |
+| `set(key, value)` | Value store karta hai |
+| `get(key)` | Value read karta hai |
+| `del(key)` | Key delete karta hai |
+| `expire(key, seconds)` | Key ka expiry set karta hai |
+| `quit()` | Client connection ko gracefully close karta hai |
+
+Example:
+
+~~~javascript
+await redisClient.set("otp:user101", "123456", { EX: 300 });
+
+const otp = await redisClient.get("otp:user101");
+
+console.log(otp);
+~~~
+
+Yeh OTP ko 5 minutes ki expiry ke saath store karta hai. Real authentication system mein OTP ko plaintext mein store karne ke bajaye secure handling aur verification controls implement karne chahiye.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I connect Redis with Node.js using the `redis` npm package. I create a client using `createClient()`, configure the Redis URL, register an error listener, and call `connect()` before serving requests. Then I use methods such as `set()` and `get()` for caching and other fast data operations."
+- **Hinglish Quick Memory:** "Node.js mein Redis connect karne ke liye `redis` package install karte hain, `createClient()` se client banate hain aur `connect()` call karte hain. Connection ke baad `set()` se data store aur `get()` se read kar sakte hain. Express app mein client ko ek baar startup par connect karna chahiye."
+
 ---
 
 *More answers will be added in question order, using this format.*
