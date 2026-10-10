@@ -13212,6 +13212,115 @@ This command is useful when the configured eviction policy supports the required
 - **English Pitch:** "A hot key in Redis is a key that receives a disproportionately high volume of traffic and can overload the node responsible for it. I would identify hot keys through monitoring and traffic analysis, then consider local caching, read replicas, key sharding, or request coalescing depending on whether the workload is read-heavy or write-heavy."
 - **Hinglish Quick Memory:** "Hot key woh key hai jis par bahut zyada requests aati hain. Isse ek Redis node overloaded aur latency high ho sakti hai. Problem identify karne ke baad local cache, read replicas, key sharding ya request coalescing use kar sakte hain—solution workload par depend karta hai."
 
+# 🚀 Question 131: How Do You Handle Hot Keys?
+
+## 📝 Answer (English — Interview Definition)
+
+A **hot key** in Redis is a key that receives a disproportionately large number of requests compared with other keys. It can become a performance bottleneck by consuming excessive CPU, network bandwidth, or processing capacity on the Redis node that handles it.
+
+Hot keys can be handled using techniques such as **caching at the application or edge layer, key sharding, local caching, request batching, and load distribution**. The right solution depends on whether the workload is read-heavy or write-heavy.
+
+## 🗣️ Answer in Hinglish
+
+Redis mein **hot key woh key hoti hai jise bahut zyada requests milti hain**. Maan lo hamari e-commerce website par ek popular product hai aur har user usi product ka data Redis se fetch kar raha hai.
+
+Agar saari requests ek hi Redis key par aa rahi hain, toh us key ko serve karne wala Redis node bottleneck ban sakta hai.
+
+Is problem ko handle karne ke main methods hain:
+
+1. **Local caching:** Frequently requested data ko application server ki memory mein short time ke liye cache karna.
+2. **Key sharding:** Read-heavy workload mein data ya copies ko multiple keys/nodes par distribute karna.
+3. **Request batching:** Multiple reads ko batch karna, jahan applicable ho.
+4. **Load distribution:** Traffic ko multiple Redis nodes ya replicas par distribute karna.
+5. **TTL aur invalidation strategy:** Cached data ko fresh rakhna, bina har request par backend ko overload kiye.
+
+**Important:** Sirf Redis mein replicas add karna har hot-key problem solve nahi karta. Read traffic replicas par distribute ho sakta hai, lekin writes aur key-level workload ko separately design karna padta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+           Many User Requests
+          /    |    |    \
+         v     v    v     v
+       API    API   API   API
+          \    |    |    /
+           v   v   v
+       Application Local Cache
+          |             |
+          | Cache miss  | Cache hit
+          v             v
+      Redis Cluster   Return data
+      (Hot Key node)
+          |
+          v
+     Popular product data
+~~~
+
+Local caching se repeated read requests Redis tak jaane se bach sakti hain. Cache invalidation aur stale data ko handle karna production mein important hai.
+
+## 💻 Practical Examples
+
+### A. Local caching for a read-heavy hot key
+
+~~~javascript
+const localCache = new Map();
+
+async function getPopularProduct(redis) {
+  const key = "product:101";
+
+  if (localCache.has(key)) {
+    return localCache.get(key);
+  }
+
+  const value = await redis.get(key);
+
+  if (value !== null) {
+    localCache.set(key, value);
+
+    // Demonstration only: use a proper TTL cache in production.
+    setTimeout(() => localCache.delete(key), 5000);
+  }
+
+  return value;
+}
+~~~
+
+Is example mein har request Redis tak jaane ke bajaye, cache hit par local memory se data return ho sakta hai.
+
+**Production note:** Har Node.js instance ka local cache alag hota hai. TTL, memory limits, stale data aur invalidation strategy manage karni hogi.
+
+### B. Key sharding for a write-heavy hot counter
+
+Ek hi key par saare increments bhejne ke bajaye, counter ko multiple keys mein split kar sakte hain:
+
+~~~text
+page_views:shard:1
+page_views:shard:2
+page_views:shard:3
+page_views:shard:4
+~~~
+
+Writes ko shards ke across distribute karo, phir zaroorat par values aggregate karo. Redis Cluster mein key design carefully karna hota hai—especially agar keys hash tags ke kaaran same slot mein route ho rahi hon.
+
+## 📊 Hot Key Problems and Solutions
+
+| Problem | Possible solution |
+|---|---|
+| Same key par excessive reads | Local caching or carefully configured read replicas |
+| Popular product key overloaded | Cache copies or controlled key sharding |
+| Single counter par heavy writes | Split the counter across multiple keys and aggregate |
+| Repeated identical requests | Request coalescing or single-flight |
+| Redis Cluster mein one-node bottleneck | Monitor hot slots/nodes and redesign access patterns |
+
+### How do you identify a hot key?
+
+Redis mein `redis-cli --hotkeys` jaisi command help kar sakti hai, lekin iska output eviction policy aur sampling requirements par depend karta hai. Production mein key-level traffic analysis aur monitoring se actual hotspot confirm karna chahiye.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A hot key in Redis is a key that receives a disproportionately high volume of traffic and can overload the node responsible for it. I would identify hot keys through monitoring and traffic analysis, then consider local caching, read replicas, key sharding, or request coalescing depending on whether the workload is read-heavy or write-heavy."
+- **Hinglish Quick Memory:** "Hot key woh key hai jis par bahut zyada requests aati hain. Isse ek Redis node overloaded aur latency high ho sakti hai. Problem identify karne ke baad local cache, read replicas, key sharding ya request coalescing use kar sakte hain—solution workload par depend karta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
