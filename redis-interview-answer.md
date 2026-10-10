@@ -5083,6 +5083,65 @@ console.timeEnd("Redis SET latency");
 - **English Pitch:** "RDB is generally faster for startup recovery because it loads a point-in-time snapshot. Runtime performance depends on workload and configuration: AOF fsync settings can add write latency, while RDB snapshotting can add fork and memory overhead. Benchmark representative workloads before choosing."
 - **Hinglish Quick Memory:** Startup par RDB aksar fast hota hai. Lekin normal write speed configuration par depend karti hai—AOF ka `appendfsync` aur RDB ka background snapshot overhead dono matter karte hain. Final choice benchmark se karo.
 
+# 🚀 Question 61: Which Provides Better Durability: RDB or AOF?
+
+## 📝 Answer (English — Interview Definition)
+
+AOF generally provides a smaller potential data-loss window than RDB because it records write operations rather than relying only on periodic snapshots. However, AOF durability depends on the configured `appendfsync` policy and on the operating system and storage device.
+
+With `appendfsync always`, Redis requests an fsync after each write, which can improve durability at the cost of write latency. With `appendfsync everysec`, Redis typically syncs about once per second; this is a common performance/durability trade-off, but it is not an absolute guarantee that no more than one second of data can be lost under every failure scenario. RDB may lose changes made since the last successful snapshot. Redis can be configured to use both mechanisms.
+
+## 🗣️ Answer in Hinglish
+
+Durability yaani crash ke baad data kitna safely recover ho sakta hai—iske liye **AOF generally RDB se better choice hota hai**, agar uski fsync policy suitably configure ki gayi ho.
+
+- **RDB:** Periodic snapshot banata hai. Last successful snapshot ke baad ke changes crash hone par lose ho sakte hain.
+- **AOF — `appendfsync always`:** Har write ke baad fsync request hoti hai. Durability stronger ho sakti hai, lekin write latency badh sakti hai.
+- **AOF — `appendfsync everysec`:** Approximately once per second disk sync karta hai. Performance aur durability ka common balance hai, lekin exact loss window failure mode aur storage behavior par depend karti hai.
+
+Production mein requirement ke hisaab se RDB aur AOF dono enable kiye ja sakte hain. Aur agar Redis ko sirf reconstructable cache ke liye use kar rahe ho, toh actual durable business state ko MongoDB ya authoritative database mein hi rakhna chahiye.
+
+## 💻 Practical Code Example (Node.js + Redis Configuration)
+
+~~~javascript
+// Example of writing a business-related record to Redis.
+// The command's acknowledgement alone does not mean it was fsynced to disk.
+await redis.set("order:101", JSON.stringify({
+  status: "confirmed",
+  amount: 1500
+}));
+~~~
+
+Example Redis server configuration:
+
+~~~text
+appendonly yes
+appendfsync everysec
+~~~
+
+**Important:** Node.js `await redis.set()` returning successfully does not by itself prove that the write has been synchronously persisted to disk. Durability depends on the Redis server configuration and storage behavior. For critical order/payment state, use the authoritative transactional database or ledger as the source of truth.
+
+## 🔄 Real-World MERN Usage Strategy
+
+- **Reconstructable product cache:** If data can be reloaded from MongoDB, cache persistence may be less critical; select RDB/AOF based on recovery requirements.
+- **Sessions or shopping carts:** If Redis is the system of record for state that cannot be reconstructed elsewhere, persistence, replication, backup, and recovery guarantees need careful design.
+- **Orders, payments, and account balances:** Do not treat Redis cache persistence as a substitute for an authoritative transactional store.
+
+## 📋 Durability Comparison Matrix
+
+| Durability Metric | RDB Snapshot | AOF Log |
+|---|---|---|
+| Persistence style | Periodic snapshots. | Logged write operations. |
+| Potential data-loss window | Can include changes since the last successful snapshot. | Depends on fsync policy and failure mode. |
+| Disk sync behavior | Follows snapshot schedule and save completion. | Controlled by `appendfsync` settings. |
+| General durability trade-off | Less granular between snapshots. | Generally more granular when configured for frequent fsync. |
+| Operational cost | Snapshot/fork and storage overhead. | Logging, fsync, rewrite, and storage overhead. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "AOF generally offers better durability than RDB because it records write operations and its potential data-loss window can be smaller. Actual durability depends on the `appendfsync` policy and storage behavior. RDB may lose changes since the last snapshot, and both methods can be enabled together."
+- **Hinglish Quick Memory:** Durability ke liye AOF generally better hai, kyunki yeh write operations log karta hai, jabki RDB periodic snapshot leta hai. `everysec` common balance hai but absolute guarantee nahi. Critical orders/payments ke liye authoritative database/ledger ko source of truth rakho.
+
 ---
 
 *More answers will be added in question order, using this format.*
