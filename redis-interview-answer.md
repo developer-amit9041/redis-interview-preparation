@@ -6865,6 +6865,107 @@ Yeh simplified example hai. Real applications mein transaction ko business logic
 - **English Pitch:** "Yes, Redis supports transactions using `MULTI`, `EXEC`, and `DISCARD`. Commands are queued after `MULTI` and execute sequentially when `EXEC` is called. Redis transactions isolate execution from other clients, but they do not provide automatic rollback for runtime command errors. `WATCH` can provide optimistic concurrency control."
 - **Hinglish Quick Memory:** "Redis transactions support karta hai. `MULTI` commands queue karta hai, `EXEC` unhe execute karta hai aur `DISCARD` cancel karta hai. `WATCH` concurrent updates detect karne mein help karta hai. Yaad rakho: Redis transaction mein SQL jaisa automatic rollback nahi hota."
 
+# 🚀 Question 80: What Is MULTI?
+
+## 📝 Answer (English — Interview Definition)
+
+**`MULTI` is a Redis command that starts a transaction.** After `MULTI` is issued, subsequent commands are queued instead of being executed immediately. The queued commands can then be executed using `EXEC` or cancelled using `DISCARD`.
+
+## 🗣️ Answer in Hinglish
+
+`MULTI` Redis transaction ko start karta hai.
+
+Jab hum `MULTI` run kar dete hain, toh uske baad likhe gaye Redis commands turant execute nahi hote. Redis unhe queue mein rakh deta hai.
+
+- `EXEC` likhenge, toh queued commands execute honge.
+- `DISCARD` likhenge, toh queued commands cancel ho jayenge.
+
+**Yaad rakhna:** `MULTI` ka kaam transaction start karna aur commands ko queue karna hai; commands execute karne ka kaam `EXEC` karta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+Application
+    |
+    | MULTI
+    v
+Redis Transaction Starts
+    |
+    | SET user:101:name "Amit"
+    | INCR users:count
+    v
+Commands enter the queue
+    |
+    +------ EXEC ------> Execute queued commands
+    |
+    +---- DISCARD -----> Cancel queued commands
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Start the transaction
+
+~~~bash
+MULTI
+~~~
+
+Redis response:
+
+~~~text
+OK
+~~~
+
+### Step 2: Queue commands
+
+~~~bash
+SET user:101:name "Amit"
+INCR users:count
+~~~
+
+Dono commands ke liye Redis response `QUEUED` hoga. Iska matlab commands queue ho gaye hain; abhi execute nahi hue.
+
+### Step 3: Execute the transaction
+
+~~~bash
+EXEC
+~~~
+
+Example response:
+
+~~~text
+1) OK
+2) (integer) 1
+~~~
+
+Ab `SET` aur `INCR` execute ho chuke hain. Counter ka actual result uski pehle se existing value par depend karega.
+
+### Agar transaction cancel karna ho
+
+~~~bash
+MULTI
+SET user:102:name "Rahul"
+INCR users:count
+DISCARD
+~~~
+
+`DISCARD` queued commands cancel kar deta hai. Isliye is transaction ka `SET` aur `INCR` execute nahi hoga.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Purpose | Redis transaction start karna |
+| Commands ka behavior | Commands queue hote hain |
+| Commands kab execute hote hain? | `EXEC` ke baad |
+| Cancel kaise karte hain? | `DISCARD` se |
+| Kya `MULTI` akela commands execute karta hai? | Nahi |
+| Common use case | Multiple related Redis operations ko ek transaction mein group karna |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`MULTI` starts a Redis transaction. Commands issued after it are queued rather than executed immediately. These commands are later executed with `EXEC` or cancelled with `DISCARD`."
+- **Hinglish Quick Memory:** "`MULTI` transaction start karta hai aur commands ko queue mein rakhta hai. `EXEC` commands execute karta hai, jabki `DISCARD` unhe cancel karta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
