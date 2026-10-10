@@ -12709,6 +12709,128 @@ Yeh starting points hain, universal rules nahi. Policy choose karte waqt access 
 
 **Reference:** [Redis official documentation — Key eviction](https://redis.io/docs/latest/develop/reference/eviction/)
 
+# 🚀 Question 127: How Do You Monitor Redis Memory Usage?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis memory usage can be monitored using commands such as `INFO memory`, `MEMORY STATS`, and `MEMORY USAGE`. These help track the memory consumed by Redis, peak memory usage, memory fragmentation, and the memory occupied by individual keys.
+
+In production, I would monitor memory utilization over time, compare it with the configured `maxmemory` limit, check eviction activity, and use monitoring tools such as Redis Insight or Prometheus with a Redis exporter to identify memory growth and potential capacity issues.
+
+## 🗣️ Answer in Hinglish
+
+Redis memory monitor karne ka matlab hai check karna ki Redis kitni RAM use kar raha hai, memory limit ke kitne close hai, aur kaunsi keys zyada memory le rahi hain.
+
+Hum mainly ye cheezein check karte hain:
+
+- **`used_memory`** — Redis allocator ke according kitni memory use ho rahi hai.
+- **`used_memory_peak`** — Redis ki memory usage ka highest recorded level.
+- **`used_memory_rss`** — Operating system ke hisaab se Redis process ki resident memory.
+- **`maxmemory`** — Redis ke liye configured memory limit.
+- **Eviction metrics** — Memory limit ke pressure mein Redis ne kitni keys evict ki hain.
+
+Agar memory continuously increase ho rahi hai, toh hume large keys, unnecessary cached data, TTL/expiration patterns aur configured eviction policy investigate karni chahiye.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+         Redis Server
+              |
+              v
+      INFO memory / INFO stats
+              |
+              v
+      Memory Metrics Collected
+              |
+       +------+-------+
+       |              |
+       v              v
+ Memory Dashboard   Alerting
+       |              |
+       v              v
+ Analyze growth    Memory threshold
+ and large keys    warning / alert
+~~~
+
+## 💻 Practical Redis CLI Examples
+
+### A. Check overall memory usage
+
+~~~bash
+redis-cli INFO memory
+~~~
+
+Important output fields include:
+
+~~~text
+used_memory:104857600
+used_memory_human:100.00M
+used_memory_peak_human:150.00M
+used_memory_rss_human:120.00M
+maxmemory:536870912
+~~~
+
+These are sample values; actual output depends on your Redis server.
+
+| Metric | Meaning |
+|---|---|
+| `used_memory_human` | Redis allocator ke hisaab se current memory usage |
+| `used_memory_peak_human` | Highest recorded allocator memory usage |
+| `used_memory_rss_human` | OS ki reported resident memory |
+| `maxmemory` | Configured maximum memory limit, bytes mein; `0` means no explicit limit |
+
+### B. Check detailed memory statistics
+
+~~~bash
+redis-cli MEMORY STATS
+~~~
+
+Yeh memory usage ko detail mein show karta hai, including dataset-related memory, overhead aur fragmentation-related statistics.
+
+### C. Check one specific key's memory usage
+
+~~~bash
+redis-cli MEMORY USAGE user:101
+~~~
+
+Isse pata chalega ki `user:101` key approximately kitni memory consume kar rahi hai, including relevant Redis object and key overhead.
+
+### D. Check configured memory limit and eviction policy
+
+~~~bash
+redis-cli CONFIG GET maxmemory
+redis-cli CONFIG GET maxmemory-policy
+~~~
+
+Agar `maxmemory` limit set hai aur Redis uske paas pahunch raha hai, toh eviction activity aur write errors monitor karna important hai.
+
+### E. Find potentially large keys
+
+~~~bash
+redis-cli --bigkeys
+~~~
+
+Yeh scan karke har data type ki large keys identify karne mein help karta hai. Production Redis par ise thoughtfully use karo: scan overhead ho sakta hai, aur command necessarily exact top-N keys by memory nahi batati.
+
+## 📊 Important Monitoring Metrics
+
+| Metric / Tool | Why it matters |
+|---|---|
+| `INFO memory` | Current memory usage, peak usage, RSS and memory limit |
+| `MEMORY STATS` | Detailed breakdown of Redis memory |
+| `MEMORY USAGE key` | Approximate memory consumed by a particular key |
+| `INFO stats` | Includes eviction counters and other operational statistics |
+| `INFO keyspace` | Number of keys and expiry information per database |
+| Redis Insight | Visual inspection and troubleshooting |
+| Prometheus + Redis exporter | Dashboarding, historical trends and alerting |
+
+**Production tip:** Monitor memory usage as a percentage of `maxmemory`, memory growth rate, evicted keys, and failed writes. Don't assume `used_memory_rss` and `used_memory` will always be equal; allocator behavior and fragmentation can make them differ.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I monitor Redis memory using `INFO memory`, `MEMORY STATS`, and `MEMORY USAGE`. I track current and peak memory, RSS, the configured `maxmemory` limit, and eviction metrics. In production, I use dashboards and alerts to detect memory growth, then investigate large keys, expiration settings, and eviction policies."
+- **Hinglish Quick Memory:** "Redis mein `INFO memory` se overall memory check karte hain, `MEMORY STATS` se detailed breakdown, aur `MEMORY USAGE key` se individual key ka approximate usage. Production mein `maxmemory`, memory growth, evictions aur failed writes monitor karte hain. Large keys aur TTL settings bhi investigate karte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
