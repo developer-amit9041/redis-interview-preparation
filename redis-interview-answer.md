@@ -12144,6 +12144,123 @@ Agar memory limit hit ho jaati hai aur Redis ko eviction ki zaroorat hoti hai, t
 - **English Pitch:** "Redis eviction policy determines which keys Redis removes when memory reaches the configured `maxmemory` limit and more memory is required. Common policies include `allkeys-lru`, `allkeys-lfu`, TTL-based policies, random eviction, and `noeviction`. For a cache, I would select a policy based on the access pattern and whether all keys are safe to evict."
 - **Hinglish Quick Memory:** "Redis eviction policy decide karti hai ki memory limit hit hone par kaunsi key remove karni hai. LRU recent access, LFU access frequency, aur TTL-based policy expiry time ko consider karti hai. Cache ke liye policy workload ke according choose karni chahiye; important data ke liye eviction impact carefully check karna chahiye."
 
+# 🚀 Question 122: What Happens When Redis Memory Becomes Full?
+
+## 📝 Answer (English — Interview Definition)
+
+When Redis reaches its configured `maxmemory` limit, its behavior depends on the configured **memory eviction policy**. Redis may evict existing keys to make room for new data, or it may reject memory-increasing write commands with an out-of-memory (`OOM`) error.
+
+With the `noeviction` policy, Redis does not evict keys and rejects commands that require additional memory. Read operations can generally continue. If `maxmemory` is not configured, Redis does not enforce a dataset memory limit and may instead face system-level memory pressure.
+
+## 🗣️ Answer in Hinglish
+
+Jab Redis ki memory full ho jaati hai, toh Redis ka behaviour uski **`maxmemory` setting aur eviction policy** par depend karta hai.
+
+**Case 1: Eviction policy enabled hai**
+
+Redis policy ke according purane ya eligible keys delete karke nayi value ke liye memory free kar sakta hai.
+
+**Case 2: `noeviction` policy hai**
+
+Redis existing keys ko automatically delete nahi karega. Agar new write ke liye extra memory chahiye, toh command ko `OOM` error ke saath reject kar sakta hai.
+
+**Important:** Memory full hone ka matlab yeh nahi ki Redis poori tarah band ho jaata hai. Reads generally work kar sakti hain, lekin memory maangne wali writes fail ho sakti hain.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+          Application
+               |
+               v
+          Redis Server
+               |
+       Has maxmemory been reached?
+               |
+        +------+------+
+        |             |
+        v             v
+ Eviction policy   noeviction
+        |             |
+        v             v
+ Remove eligible   Reject write
+ keys if possible  with OOM error
+        |             |
+        v             v
+ Make room if      Existing data
+ possible          is not evicted
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Check Redis memory usage
+
+~~~bash
+redis-cli INFO memory
+~~~
+
+Useful fields include `used_memory` and `maxmemory`. A `maxmemory` value of `0` means no Redis-enforced dataset memory limit is configured.
+
+You can also check the settings directly:
+
+~~~bash
+redis-cli CONFIG GET maxmemory
+redis-cli CONFIG GET maxmemory-policy
+~~~
+
+### Step 2: Understand what happens at the limit
+
+For example, suppose Redis has this configuration:
+
+~~~text
+maxmemory        = 100mb
+maxmemory-policy = noeviction
+~~~
+
+When Redis is at the memory limit, try a write:
+
+~~~bash
+redis-cli SET new:key "some value"
+~~~
+
+If Redis needs more memory and cannot accommodate the write, it can return an error similar to:
+
+~~~text
+(error) OOM command not allowed when used memory > 'maxmemory'.
+~~~
+
+The exact moment depends on actual memory usage and command size.
+
+### Step 3: Choose an eviction policy
+
+For a cache, you might configure a policy such as:
+
+~~~bash
+redis-cli CONFIG SET maxmemory-policy allkeys-lru
+~~~
+
+With `allkeys-lru`, Redis can evict keys from the entire keyspace using an approximation of least-recently-used selection to make room.
+
+**Production note:** `CONFIG SET` changes runtime configuration where permitted; persistence across restarts depends on how Redis is configured and deployed. In managed Redis services, use the provider's supported configuration mechanism.
+
+## 📊 Important Eviction Policies
+
+| Policy | Behaviour |
+|---|---|
+| `noeviction` | Does not evict keys; memory-increasing writes can fail with `OOM`. |
+| `allkeys-lru` | Evicts keys from all keys, approximately favouring least recently used. |
+| `allkeys-lfu` | Evicts keys from all keys, approximately favouring least frequently used. |
+| `allkeys-random` | Evicts randomly selected keys from the keyspace. |
+| `volatile-lru` | Evicts eligible keys that have an expiration set, using approximate LRU. |
+| `volatile-lfu` | Evicts eligible keys that have an expiration set, using approximate LFU. |
+| `volatile-ttl` | Favours keys with the shortest remaining TTL among eligible keys. |
+
+**Interview tip:** If using a `volatile-*` policy and no eligible keys have expiration set, Redis may not be able to evict a key to satisfy the allocation, so the write can fail.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "When Redis reaches its configured `maxmemory` limit, its response depends on the eviction policy. It may evict eligible keys to free memory, or with `noeviction`, reject writes that need more memory with an OOM error. I would monitor Redis memory usage and choose an eviction policy based on whether Redis is being used as a cache or for data that must not be evicted."
+- **Hinglish Quick Memory:** "Redis memory limit par pahunchta hai toh eviction policy decide karti hai kya hoga. `allkeys-lru` eligible keys evict kar sakta hai, jabki `noeviction` mein memory badhane wali write fail ho sakti hai. Isliye `INFO memory`, `maxmemory` aur `maxmemory-policy` monitor karna important hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
