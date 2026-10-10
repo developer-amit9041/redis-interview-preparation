@@ -5615,6 +5615,127 @@ Redis server running hona chahiye, aur subscriber ko message publish hone se peh
 - **English Pitch:** "Redis Pub/Sub is a real-time messaging mechanism where publishers send messages to channels and active subscribers receive them. It is useful for notifications, chat events, and live updates, but it provides at-most-once delivery and does not persist messages for offline subscribers."
 - **Hinglish Quick Memory:** Publisher message bhejta hai, Redis us channel ke active subscribers ko broadcast karta hai. Lekin subscriber offline ho toh message miss ho sakta hai, kyunki Redis Pub/Sub messages ko store nahi karta.
 
+# 🚀 Question 68: Why Do We Use Redis Pub/Sub?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis Pub/Sub is used for real-time communication between different parts of an application. A publisher sends a message to a channel, and Redis delivers it to the subscribers currently listening to that channel, without requiring the publisher to know each subscriber directly.
+
+Common use cases include real-time notifications, chat applications, live dashboards, and event broadcasting between Node.js services. Pub/Sub helps services remain loosely coupled, but messages are not persisted for offline subscribers and delivery is at-most-once.
+
+## 🗣️ Answer in Hinglish
+
+Redis Pub/Sub ka use application ke different parts ke beech real-time messages send aur receive karne ke liye hota hai.
+
+Maan lo MERN application mein order place hota hai aur notification service aur admin dashboard ko turant inform karna hai. Har service ko directly call karne ke bajaye:
+
+1. Order Service Redis ke `order_events` channel par message publish karti hai.
+2. Redis us message ko channel ke active subscribers ko broadcast karta hai.
+3. Notification Service aur Admin Dashboard message receive kar sakte hain, agar woh us waqt subscribed hon.
+
+**Main benefit:** Publisher ko subscribers ki exact details nahi janni padti, isliye services loosely coupled rehti hain.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+[ Order Service — Node.js ]
+       | Order placed
+       v
+[ Redis Pub/Sub ]
+  Channel: order_events
+       |
+       +--------------------+
+       |                    |
+       v                    v
+[ Notification Service ] [ Admin Dashboard ]
+       |                    |
+       v                    v
+  User notification     Live order update
+~~~
+
+## 💻 Practical Node.js Example
+
+Install the Redis client:
+
+~~~bash
+npm install redis
+~~~
+
+### Publisher — `publisher.js`
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const publisher = createClient();
+  publisher.on("error", (error) => console.error("Redis Publisher Error:", error));
+
+  await publisher.connect();
+
+  const order = {
+    orderId: 101,
+    status: "Order Placed"
+  };
+
+  const subscriberCount = await publisher.publish(
+    "order_events",
+    JSON.stringify(order)
+  );
+
+  console.log("Order event published");
+  console.log("Active subscribers reached:", subscriberCount);
+
+  await publisher.quit();
+}
+
+main().catch(console.error);
+~~~
+
+### Subscriber — `subscriber.js`
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const subscriber = createClient();
+  subscriber.on("error", (error) => console.error("Redis Subscriber Error:", error));
+
+  await subscriber.connect();
+
+  await subscriber.subscribe("order_events", (message) => {
+    try {
+      const order = JSON.parse(message);
+      console.log("New order received:", order);
+    } catch (error) {
+      console.error("Invalid order event payload:", error);
+    }
+  });
+
+  console.log("Listening for order events...");
+}
+
+main().catch(console.error);
+~~~
+
+Run `node subscriber.js` first, then run `node publisher.js` in another terminal. Redis must be available at the client's configured address. An offline subscriber can miss the message.
+
+## 🎯 Why Do We Use Redis Pub/Sub?
+
+| Benefit | Explanation |
+|---|---|
+| Real-time communication | Active subscribers receive published messages immediately. |
+| Loose coupling | Publisher does not need direct references to subscribers. |
+| Multiple subscribers | Multiple active services can receive the same broadcast. |
+| Service communication | Useful for broadcasting events across Node.js services. |
+| Simple implementation | Channels provide a straightforward publish/subscribe interface. |
+
+**Important limitation:** Redis Pub/Sub does not persist messages and provides at-most-once delivery. If messages must be retained, replayed, or processed after a subscriber reconnects, consider Redis Streams or another durable messaging system.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "We use Redis Pub/Sub for real-time communication between different parts of an application. It supports loose coupling, message broadcasting, and communication between services. Common use cases include notifications, chat applications, and live dashboards, but messages are not persisted for offline subscribers."
+- **Hinglish Quick Memory:** Redis Pub/Sub ka use real-time messaging ke liye hota hai. Publisher channel par message bhejta hai aur active subscribers receive karte hain. Isse services loosely coupled rehti hain, lekin offline subscriber message miss kar sakta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
