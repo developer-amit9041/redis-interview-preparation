@@ -7417,6 +7417,141 @@ Ye examples individual Redis commands hain. Multi-step business logic ke liye, r
 - **English Pitch:** "An atomic operation in Redis executes as a single indivisible command, so other clients cannot interrupt it during execution. Commands such as `INCR` help prevent race conditions in concurrent counter updates. However, atomicity of a single command does not imply automatic rollback for a multi-command transaction."
 - **Hinglish Quick Memory:** "Redis atomic operation ek single unit ki tarah execute hoti hai. `INCR` jaise commands concurrent updates mein race conditions se bachate hain. Lekin atomic command aur transaction rollback same cheez nahi hain."
 
+# 🚀 Question 85: Redis Transaction vs MongoDB Transaction?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis transactions** use `MULTI`, `EXEC`, `DISCARD`, and optionally `WATCH` to queue commands, execute them in isolation, and detect concurrent key modifications. Redis transactions do not automatically roll back commands that have already succeeded when a later command encounters a runtime error.
+
+**MongoDB transactions** provide ACID transaction semantics for multiple database operations, including operations across multiple documents and collections. A transaction can be committed or aborted; aborting rolls back the transaction's changes.
+
+The main difference is that Redis transactions primarily group and isolate Redis commands, while MongoDB transactions provide ACID transaction semantics for database changes.
+
+## 🗣️ Answer in Hinglish
+
+Dono databases transactions support karte hain, lekin inka behaviour aur purpose different hai.
+
+**Redis transaction:**
+- `MULTI` se commands queue hoti hain.
+- `EXEC` un commands ko sequentially execute karta hai.
+- `WATCH` concurrent key changes detect karne mein help karta hai.
+- Runtime command error hone par pehle successfully execute hue commands automatically undo nahi hote.
+
+**MongoDB transaction:**
+- Multiple documents ya collections par related operations ek transaction mein kar sakte hain.
+- `commit` hone par transaction ke changes commit hote hain.
+- Transaction `abort` hone par us transaction ke changes rollback hote hain.
+- Transactions useful hain jab related database changes ko ek consistent unit mein complete karna zaroori ho.
+
+### Real-World Example — E-commerce Order
+
+Maan lo order place karte waqt MongoDB mein order document create karna aur inventory document update karna hai.
+
+Agar dono changes successful hona zaroori hai, toh MongoDB transaction dono operations ko ek ACID transaction mein execute kar sakta hai. Agar transaction abort hota hai, toh dono operations ke transactional changes rollback ho jaate hain.
+
+Redis transaction Redis ke andar multiple Redis commands ko group kar sakta hai, lekin woh apne aap MongoDB changes ke saath distributed transaction nahi banata.
+
+## 🏗️ Architecture Diagram
+
+### Redis Transaction
+
+~~~text
+MULTI
+  |
+  v
+Commands queued
+  |
+  v
+EXEC
+  |
+  v
+Queued commands execute sequentially
+  |
+  v
+No automatic rollback on runtime command error
+~~~
+
+### MongoDB Transaction
+
+~~~text
+Start Transaction
+       |
+       v
+Update Order + Update Inventory
+       |
+       v
+  Commit or Abort
+     /       \
+    v         v
+ Commit     Rollback
+ changes    transaction changes
+~~~
+
+## 💻 Practical Examples
+
+### A. Redis transaction
+
+~~~bash
+MULTI
+SET order:101:status "created"
+INCR orders:count
+EXEC
+~~~
+
+`EXEC` queued commands ko execute karta hai. Lekin agar second command runtime error de, toh Redis pehle successful `SET` ko automatically undo nahi karega.
+
+### B. MongoDB transaction with Node.js and Mongoose
+
+~~~javascript
+const session = await mongoose.startSession();
+
+try {
+  await session.withTransaction(async () => {
+    await Order.create(
+      [{ userId, items, status: "created" }],
+      { session }
+    );
+
+    const result = await Product.updateOne(
+      { _id: productId, stock: { $gte: 1 } },
+      { $inc: { stock: -1 } },
+      { session }
+    );
+
+    if (result.modifiedCount !== 1) {
+      throw new Error("Insufficient stock or product unavailable");
+    }
+  });
+
+  console.log("Order and inventory changes committed");
+} catch (error) {
+  console.error("Transaction failed:", error);
+} finally {
+  await session.endSession();
+}
+~~~
+
+Is example mein transaction commit tab hota hai jab callback successfully complete ho. Error throw hone par transaction abort hota hai, aur transaction ke andar ke database changes rollback kiye jaate hain.
+
+**Note:** MongoDB transaction chalane ke liye deployment ko transactions support karna chahiye, aur transaction mein use hone wale operations ko same session pass karna zaroori hai. Production code mein retryable transaction errors aur business-specific validation bhi handle karni chahiye.
+
+## 📊 Comparison Table
+
+| Feature | Redis Transaction | MongoDB Transaction |
+|---|---|---|
+| Main commands/API | `MULTI`, `EXEC`, `DISCARD`, `WATCH` | `startTransaction`, `commitTransaction`, `abortTransaction` or driver helpers |
+| Main purpose | Redis commands ko group aur isolate karna | Database changes ko ACID transaction mein execute karna |
+| Multiple records/documents | Redis commands ke through, data model ke hisaab se | Multiple documents aur collections support karta hai |
+| Automatic rollback on abort | Runtime command error par automatic rollback nahi | Abort transaction ke changes rollback karta hai |
+| Concurrency | `WATCH` se optimistic concurrency control | Database concurrency control aur write-conflict handling |
+| Overhead | Generally lightweight for simple Redis operations | Transactions mein additional overhead ho sakta hai |
+| Best use case | Atomic counter updates aur related Redis commands | Related MongoDB document changes ko ek consistent unit mein commit karna |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis transactions use `MULTI` and `EXEC` to execute queued commands in isolation, but they do not automatically roll back commands that already succeeded if a later command fails at runtime. MongoDB transactions provide ACID semantics for related changes across multiple documents and collections, allowing the application to commit or abort the transaction."
+- **Hinglish Quick Memory:** "Redis transaction commands ko queue karke isolated execution deta hai, lekin runtime error par pehle ke successful commands automatic undo nahi hote. MongoDB transaction mein related document changes commit ya abort kar sakte hain. Agar order aur inventory dono changes ek saath successful hona zaroori hai, toh MongoDB transaction useful hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
