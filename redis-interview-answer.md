@@ -4622,6 +4622,80 @@ Jab admin dashboard par naya valid item create hota hai, toh us identifier ke li
 - **English Pitch:** "We prevent Cache Penetration with strict input validation, short-lived negative caching, rate limits, and Bloom filters where appropriate. These measures block malformed or nonexistent-key traffic from repeatedly reaching the primary database."
 - **Hinglish Quick Memory:** Pehle ID validate karo. Agar valid ID database mein nahi milti, toh `__NOT_FOUND__` marker ko short TTL ke liye Redis mein save kar sakte ho. Rate limiting aur Bloom filters bhi unnecessary database hits ko reduce karte hain.
 
+# 🚀 Question 54: How Do You Prevent Cache Stampede?
+
+## 📝 Answer (English — Interview Definition)
+
+Cache Stampede prevention focuses on coordinating concurrent cache misses so that only one request refreshes a popular expired key while the other requests reuse the in-flight result or wait for the refresh to complete.
+
+Common strategies include **request coalescing (single-flight)** within one application process, distributed coordination or locking across multiple instances, and **refresh-ahead** background jobs that refresh hot keys before expiry. Where business rules allow, stale-while-revalidate can serve a bounded stale value while the cache is refreshed.
+
+## 🗣️ Answer in Hinglish
+
+Cache Stampede tab hota hai jab popular key expire ho jaati hai aur bahut saari parallel requests same data ke liye MongoDB par duplicate queries chala deti hain. Isko prevent karne ke liye:
+
+1. **Request Coalescing:** Ek Node.js process mein same key ki active DB query ka Promise store karo, taaki baaki requests usi result ko reuse karein.
+2. **Distributed Coordination / Locking:** Multiple app instances mein shared locking ya coordination mechanism use karo, jahan zaroori ho, taaki same hot key ke liye duplicate refreshes kam hon.
+3. **Background Refresh:** TTL expire hone se pehle hot keys refresh karne ke liye worker ya scheduled job chalao.
+4. **Stale-While-Revalidate:** Business rules allow karein toh refresh ke dauran limited time ke liye stale data return karo.
+
+## 💻 Practical Code Example (Single-Instance Coalescing)
+
+~~~javascript
+// This Map coordinates requests only inside this Node.js process.
+const pendingDBTasks = new Map();
+
+async function getProductCoalesced(productId) {
+  const cacheKey = `product:${productId}`;
+  const cachedData = await redis.get(cacheKey);
+
+  if (cachedData !== null) {
+    return JSON.parse(cachedData);
+  }
+
+  // Reuse an in-flight database request for the same key
+  if (pendingDBTasks.has(cacheKey)) {
+    return pendingDBTasks.get(cacheKey);
+  }
+
+  const dbExecutionPromise = (async () => {
+    try {
+      const dbRow = await Product.findById(productId).lean();
+
+      if (dbRow) {
+        await redis.set(cacheKey, JSON.stringify(dbRow), { EX: 300 });
+      }
+
+      return dbRow;
+    } finally {
+      // Clear the in-flight entry after success or failure
+      pendingDBTasks.delete(cacheKey);
+    }
+  })();
+
+  pendingDBTasks.set(cacheKey, dbExecutionPromise);
+  return dbExecutionPromise;
+}
+~~~
+
+## ⚠️ Production Multi-Instance Note
+
+Local `Map()` coordination works only within one Node.js process. With multiple containers behind a load balancer, each process has its own map, so duplicate queries can still occur across instances. A shared lock or other distributed coordination mechanism may help, but it needs careful timeout, failure, and safe-release handling; it is not automatically required for every architecture.
+
+## 📋 Cache Stampede Prevention Matrix
+
+| Mitigation Technique | Functional Principle | Best Fit |
+|---|---|---|
+| Request coalescing | Reuses one in-flight Promise for the same key in a process. | Single process or local service instance. |
+| Distributed coordination / lock | Coordinates refreshes across app instances. | Multi-instance deployments with hot keys. |
+| Background refresh | Refreshes hot data before the key expires. | Frequently requested critical records. |
+| Stale-while-revalidate | Serves bounded stale data while one refresh runs. | Content where brief staleness is acceptable. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Prevent a Cache Stampede by deduplicating concurrent reads with request coalescing, coordinating refreshes across instances when needed, and refreshing hot keys before expiry. Stale-while-revalidate can also reduce database pressure when short-lived stale data is acceptable."
+- **Hinglish Quick Memory:** Ek hi hot key ke liye sabhi requests ko MongoDB hit mat karne do. Single process mein same in-flight Promise share karo; multiple servers mein shared coordination use kar sakte ho, aur hot keys ko expiry se pehle refresh kar sakte ho.
+
 ---
 
 *More answers will be added in question order, using this format.*
