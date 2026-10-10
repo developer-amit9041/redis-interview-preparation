@@ -769,6 +769,446 @@ async function getProductDetails(productId, redisClient) {
 
 ---
 
+# 🚀 Question 7: What Is a Redis Key-Value Pair?
+
+## 📝 Answer (English)
+
+A **key-value pair** is the fundamental way Redis identifies and stores data. The **key** is a binary-safe string that identifies an entry, and the **value** is the data associated with that key. Depending on the Redis data type, the value can be a simple String or a structure such as a Hash, List, Set, or Sorted Set.
+
+For example, `username` can be the key and `Amit` can be its value.
+
+## 🗣️ Answer (Hinglish)
+
+Redis mein data ko keys ke through access kiya jata hai. Isko telephone directory ki tarah samjho:
+
+- **Key:** Data ka naam ya address, jiske through data find karte hain.
+- **Value:** Us key se associated actual data.
+
+```text
+Key            Value
+----------     ----------
+username  ---> Amit
+user:age  ---> 28
+active:city -> Delhi
+```
+
+Agar hume user ka naam chahiye, toh `username` key ke through value retrieve kar sakte hain.
+
+## 💻 Practical Example — Node.js + Redis
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+
+  await redis.connect();
+
+  // Store a key-value pair.
+  await redis.set("username", "Amit");
+
+  // Read the value associated with the key.
+  const username = await redis.get("username");
+  console.log(username); // Amit
+
+  // Setting the same key again overwrites its previous value.
+  await redis.set("username", "Amit Kumar");
+  console.log(await redis.get("username")); // Amit Kumar
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+## 🔄 Real-World MERN Example — Session Lookup
+
+```javascript
+// Map a session ID to a user ID for one hour.
+await redis.set("session:12345", "user_101", { EX: 3600 });
+
+// Retrieve the associated user ID.
+const userId = await redis.get("session:12345");
+```
+
+Here, `session:12345` is the key and `user_101` is the value. The `EX: 3600` option makes the key expire after 3,600 seconds, provided it has not been changed or removed earlier.
+
+| Command | Purpose | Example |
+|---|---|---|
+| `SET` | Store or replace a value | `SET username "Amit"` |
+| `GET` | Read a value | `GET username` |
+| `DEL` | Delete a key | `DEL username` |
+| `EXISTS` | Check whether a key exists | `EXISTS username` |
+| `EXPIRE` | Set expiration on an existing key | `EXPIRE username 60` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- Key = identifier/address; value = associated data.
+- `SET` stores a value and `GET` reads it.
+- Setting a value on an existing key usually replaces the previous value.
+- Redis values can be simple strings or richer data structures.
+- Keys with sensitive temporary data can be given a TTL.
+
+**Interview answer to remember:** “A Redis key-value pair consists of a key that identifies an entry and a value containing the associated data. Redis uses commands such as SET and GET for simple values, and also supports structured data types such as Hashes, Lists, Sets, and Sorted Sets.”
+
+# 🚀 Question 8: What Is TTL in Redis?
+
+## 📝 Answer (English)
+
+**TTL (Time To Live)** tells how many seconds remain before a Redis key with an expiration is due to expire. TTL is useful for temporary data such as cache entries, OTPs, sessions, and rate-limit windows. You can set an expiry while writing a key with `SET ... EX`, or add an expiry to an existing key with `EXPIRE`.
+
+## 🗣️ Answer (Hinglish)
+
+TTL ka full form **Time To Live** hai. Simple words mein, yeh batata hai ki kisi expiring Redis key ke expire hone mein kitna time bacha hai.
+
+Example: OTP ko sirf 5 minutes tak valid rakhna hai, toh usko 300 seconds ke TTL ke saath store kar sakte hain. Time complete hone par key expire ho jayegi.
+
+## 💻 Practical Example — OTP with TTL
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+  await redis.connect();
+
+  // Store an OTP for 5 minutes.
+  await redis.set("otp:user101", "482913", { EX: 300 });
+
+  // Read remaining TTL (seconds).
+  const remainingTime = await redis.ttl("otp:user101");
+  console.log("Remaining TTL:", remainingTime);
+
+  // Read the OTP while the key is valid.
+  console.log("OTP:", await redis.get("otp:user101"));
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+## 📊 TTL Commands and Return Values
+
+| Command / result | Meaning |
+|---|---|
+| `SET key value EX 300` | Store a value with a 300-second expiry |
+| `EXPIRE key 60` | Set a 60-second expiry on an existing key |
+| `TTL key` | Return the remaining TTL in seconds |
+| `PTTL key` | Return the remaining TTL in milliseconds |
+| `PERSIST key` | Remove the expiration from the key |
+| `-1` from TTL | The key exists but has no expiration set |
+| `-2` from TTL | The key does not exist (or has already expired) |
+
+**Security note:** TTL alone does not make an OTP flow secure. After successful verification, delete the OTP explicitly and apply attempt limits and other appropriate protections.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- TTL = Time To Live.
+- `SET key value EX 300` stores a key with a five-minute expiry.
+- `TTL` shows the remaining time in seconds; `PTTL` uses milliseconds.
+- `-1` means the key exists without an expiry; `-2` means the key is missing.
+- TTL is useful for cache data, OTPs, session state, and rate-limiting windows.
+
+**Interview answer to remember:** “TTL stands for Time To Live. It tells how long remains before an expiring Redis key is removed. We use EX or EXPIRE to set the expiry and TTL/PTTL to inspect the remaining time.”
+
+# 🚀 Question 9: What Is Key Expiration in Redis?
+
+## 📝 Answer (English)
+
+**Key expiration** is the Redis feature that makes a key unavailable after its configured expiration time. Expiry can be configured during a write, for example with `SET key value EX 300`, or applied later using `EXPIRE`. Redis combines passive expiration—checking expiry when a key is accessed—with active expiration, which periodically samples keys and removes expired entries.
+
+## 🗣️ Answer (Hinglish)
+
+Redis mein key expiration ka matlab hai kisi key ko set kiye gaye time ke baad automatically expire kar dena. Isse temporary data ko hamesha memory mein rakhne ki zaroorat nahi padti aur cache stale data ko indefinitely hold nahi karta.
+
+**TTL aur Key Expiration ka difference:**
+
+- **TTL:** Remaining time batata hai, yaani key ke expire hone mein kitne seconds bache hain.
+- **Key Expiration:** Woh Redis mechanism hai jisse expiry time complete hone par key unavailable ho jaati hai.
+
+Example: OTP ko `EX: 300` ke saath save karne par 5 minutes ke baad us key ko read karne par value nahi milegi.
+
+## 💻 Practical Example — Node.js + Redis
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+  await redis.connect();
+
+  // Store an OTP with a five-minute expiry.
+  await redis.set("otp:user101", "482913", { EX: 300 });
+
+  console.log("TTL:", await redis.ttl("otp:user101"));
+  console.log("OTP:", await redis.get("otp:user101"));
+
+  // Delete immediately after successful verification when appropriate.
+  // await redis.del("otp:user101");
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+## 📊 Essential Expiration Commands
+
+| Command | Purpose |
+|---|---|
+| `SET key value EX 300` | Store a value with a 300-second expiry |
+| `EXPIRE key 60` | Add a 60-second expiry to an existing key |
+| `TTL key` | Check remaining time in seconds |
+| `PERSIST key` | Remove a key's expiration |
+| `DEL key` | Delete the key immediately |
+
+### Redis expiration mechanisms
+
+1. **Passive (lazy) expiration:** Redis checks a key's expiration when it is accessed; expired data is treated as unavailable and removed.
+2. **Active expiration:** Redis periodically samples keys with expiration metadata and cleans up expired keys without waiting for each one to be accessed.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- Key expiration makes temporary keys unavailable after a configured time.
+- Use `EX` when creating a key or `EXPIRE` to add expiry later.
+- TTL reports the remaining time; it is not the expiration process itself.
+- Redis uses passive and active expiration mechanisms.
+- For OTPs, delete the key after successful verification as well as setting a TTL.
+
+**Interview answer to remember:** “Key expiration lets Redis automatically expire keys after a specified duration. It can be configured with SET's EX option or EXPIRE. Redis uses passive checks and periodic active cleanup to manage expired keys.”
+
+# 🚀 Question 10: What Are the Most Commonly Used Redis Commands?
+
+## 📝 Answer (English)
+
+Redis provides commands for storing, retrieving, deleting, and updating data; applying expiration; working with different data structures; and checking server status. Frequently used commands include `SET`, `GET`, `DEL`, `EXISTS`, `EXPIRE`, `TTL`, and `INCR`. Data-type-specific commands include `HSET` for Hashes, `LPUSH`/`RPUSH` for Lists, `SADD` for Sets, and `ZADD` for Sorted Sets.
+
+## 🗣️ Answer (Hinglish)
+
+Redis commands se hum data store, read, update aur delete karte hain. Interview mein commands ko category ke hisaab se explain karna easy rehta hai:
+
+- **Basic commands:** `SET`, `GET`, `DEL`, `EXISTS`
+- **Expiry commands:** `EXPIRE`, `TTL`, `PERSIST`
+- **Counter commands:** `INCR`, `DECR`, `INCRBY`
+- **Hash commands:** `HSET`, `HGET`, `HGETALL`
+- **List commands:** `LPUSH`, `RPUSH`, `LRANGE`
+- **Set commands:** `SADD`, `SMEMBERS`
+- **Sorted Set commands:** `ZADD`, `ZRANGE`
+- **Health check:** `PING`
+
+## 📊 Redis Commands Reference Table
+
+| Category | Command | Purpose | Example |
+|---|---|---|---|
+| Basic | `SET` | Store or replace a value | `SET user:name "Amit"` |
+| Basic | `GET` | Read a value | `GET user:name` |
+| Basic | `MSET / MGET` | Write/read multiple keys | `MSET name "Amit" city "Delhi"` |
+| Basic | `DEL` | Delete one or more keys | `DEL user:name` |
+| Basic | `EXISTS` | Check key existence | `EXISTS user:name` |
+| Expiry | `EXPIRE` | Set expiry in seconds | `EXPIRE user:name 60` |
+| Expiry | `TTL` | Check remaining lifetime | `TTL user:name` |
+| Expiry | `PERSIST` | Remove a key's expiry | `PERSIST user:name` |
+| Counter | `INCR / DECR` | Change an integer by one | `INCR page_views` |
+| Counter | `INCRBY` | Increase by a chosen amount | `INCRBY page_views 10` |
+| Hash | `HSET` | Set Hash fields | `HSET user:1 name "Amit" role "Dev"` |
+| Hash | `HGETALL` | Read all Hash fields | `HGETALL user:1` |
+| List | `LPUSH / RPUSH` | Add an item at the left or right | `RPUSH tasks "SendEmail"` |
+| List | `LRANGE` | Read a list range | `LRANGE tasks 0 -1` |
+| Set | `SADD` | Add unique members | `SADD skills "Node.js" "React"` |
+| Set | `SMEMBERS` | Read set members | `SMEMBERS skills` |
+| Sorted Set | `ZADD` | Add member with score | `ZADD leaderboard 100 "Amit"` |
+| Server | `PING` | Test connectivity | `PING` |
+
+## 💻 Practical Example — Node.js + Redis
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", (err) => console.error("Redis Error:", err));
+  await redis.connect();
+
+  // SET and GET
+  await redis.set("username", "Amit");
+  console.log("Username:", await redis.get("username"));
+
+  // EXPIRE and TTL
+  await redis.expire("username", 60);
+  console.log("Remaining TTL:", await redis.ttl("username"));
+
+  // Atomic counter
+  await redis.set("page_views", "0");
+  await redis.incr("page_views");
+  console.log("Page views:", await redis.get("page_views")); // "1"
+
+  // Hash
+  await redis.hSet("user:1", { name: "Amit", role: "Developer" });
+  console.log("Hash:", await redis.hGetAll("user:1"));
+
+  // Delete a key
+  await redis.del("username");
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+## 🔄 Real-World MERN Mapping
+
+- **Product cache:** `SET` with `EX` to cache serialized data for a limited time.
+- **Rate limiting:** `INCR` and expiry, usually combined with atomic logic for accurate windows.
+- **User/session fields:** Hash commands such as `HSET` and `HGETALL`.
+- **Leaderboard:** `ZADD` and `ZRANGE`.
+- **Connectivity check:** `PING`.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- `SET` saves, `GET` reads, `DEL` deletes.
+- `EXPIRE` sets an expiry; `TTL` checks remaining time.
+- `INCR` atomically increments a numeric value.
+- `HSET` stores Hash fields; `LPUSH/RPUSH` add List items.
+- `SADD` adds unique Set members; `ZADD` adds score-based Sorted Set members.
+- Use `SCAN` rather than blocking-style `KEYS *` for incremental key iteration in production.
+
+**Interview answer to remember:** “Common Redis commands include SET, GET, DEL, EXISTS, EXPIRE, TTL, and INCR. Redis also has type-specific commands such as HSET, LPUSH/RPUSH, SADD, and ZADD for manipulating Hashes, Lists, Sets, and Sorted Sets.”
+
+# 🚀 Questions 36–37: What Is Redis Caching and Why Do We Use It?
+
+## 📝 Answer (English)
+
+Redis caching is a technique in which frequently accessed data is temporarily stored in Redis memory so an application can retrieve it quickly without repeatedly querying the primary database. It can reduce response times and database read load, particularly for popular data.
+
+A common approach is the **Cache-Aside pattern**: the application checks Redis first, fetches from MongoDB on a cache miss, and then stores a copy in Redis with a time-to-live (TTL).
+
+## 🗣️ Answer (Hinglish)
+
+Maan lo MERN project mein product details API hai. Har request par MongoDB query chalane ke bajaye, frequently accessed product ko Redis mein cache kar sakte hain:
+
+- **Cache miss:** Data Redis mein nahi mila, toh MongoDB se fetch karo.
+- **Cache fill:** Fetched data ki copy Redis mein TTL ke saath save karo.
+- **Cache hit:** Agli request Redis se data le sakti hai, jisse repeated database reads kam hoti hain.
+- **TTL / invalidation:** Expiry ya database update ke baad cache ko refresh/delete karne ki strategy rakho, taaki stale data indefinitely serve na ho.
+
+## 🔄 Cache-Aside Flow
+
+```text
+[ Client / React App ]
+          |
+          v
+[ Node.js / Express API ]
+          |
+          v
+    [ Check Redis ]
+          |
+      +---+---+
+      |       |
+      v       v
+ [ Cache Hit ] [ Cache Miss ]
+      |            |
+      |            v
+      |        [ MongoDB ]
+      |            |
+      |            v
+      |     [ Save in Redis ]
+      |            |
+      +------+-----+
+             |
+             v
+    [ Return response ]
+```
+
+## 💻 Practical Implementation — Node.js + Mongoose
+
+Install dependencies:
+
+```bash
+npm install redis mongoose
+```
+
+Example `cacheService.js` (assumes the Mongoose model is exported from `./models/Product`):
+
+```javascript
+const { createClient } = require("redis");
+const Product = require("./models/Product");
+
+const redis = createClient({ url: "redis://localhost:6379" });
+redis.on("error", (err) => console.error("Redis Error:", err));
+
+async function initRedis() {
+  await redis.connect();
+}
+
+async function getProduct(productId) {
+  const cacheKey = `product:${productId}`;
+
+  // 1. Check cache first.
+  const cachedProduct = await redis.get(cacheKey);
+  if (cachedProduct !== null) {
+    return JSON.parse(cachedProduct);
+  }
+
+  // 2. Cache miss: read from MongoDB.
+  const product = await Product.findById(productId).lean();
+  if (!product) return null;
+
+  // 3. Cache the result for five minutes.
+  await redis.set(cacheKey, JSON.stringify(product), { EX: 300 });
+
+  return product;
+}
+
+module.exports = { redis, initRedis, getProduct };
+```
+
+Call `await initRedis()` once during application startup before using `getProduct()`. In a production application, handle connection failures, cache invalidation, and concurrent cache misses appropriately.
+
+## 📊 Caching Benefit — What Changes?
+
+| Metric | Without a cache | With a warm Redis cache |
+|---|---|---|
+| Repeated product reads | Most requests query MongoDB | Cache hits can avoid the MongoDB read |
+| Database read load | Higher for popular repeated queries | Often lower when cache hit ratio is high |
+| Response latency | Depends on DB and query load | Can be lower when the request is served from nearby Redis |
+| Cache freshness | Reads from current database state | Requires TTL or explicit invalidation to avoid stale copies |
+
+*Note:* The exact impact depends on workload, cache hit rate, network latency, query cost, and concurrent misses. Without stampede protection, multiple simultaneous misses for the same key may all query MongoDB.
+
+## 📋 Key Caching Terminology
+
+- **Cache hit:** Requested data exists in Redis and can be returned.
+- **Cache miss:** Data is not in Redis, so the application must retrieve it elsewhere.
+- **TTL (Time To Live):** Time after which the cache key expires.
+- **Cache invalidation:** Removing or refreshing cached data after its source changes.
+- **Cache-Aside:** Application checks the cache and queries the primary database only on a miss.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- Redis caching stores frequently accessed data in memory.
+- First check Redis; on a miss fetch from MongoDB and cache the result.
+- A cache hit can improve response time and reduce repeated database reads.
+- TTL controls how long a cached copy remains, but updates may need explicit invalidation.
+- Real-world benefit depends on hit rate and workload; protect against concurrent cache misses when needed.
+
+**Interview answer to remember:** “Redis caching stores frequently accessed data in memory so applications can retrieve it quickly without repeatedly querying the primary database. A common implementation is Cache-Aside: check Redis first, fetch from MongoDB on a miss, and cache the result with a TTL.”
+
 ---
 
 *More answers will be added in question order, using this format.*
