@@ -5,7 +5,7 @@ Redis interview questions and answers are separated into two files so the questi
 ## Files
 
 - **[Redis Interview Questions](./redis-interview-question.md)** — the complete 140-question list organized into 9 levels.
-- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q104, through “Which Redis Client Do You Use in Node.js?”
+- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q106, through “How Do You Retrieve JSON Data from Redis?”
 
 ## Study Format
 
