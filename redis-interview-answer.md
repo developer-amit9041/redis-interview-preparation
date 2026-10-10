@@ -3712,6 +3712,104 @@ async function updateProductWriteThrough(productId, updateData) {
 - **English Pitch:** "Write-Through caching updates the primary database and cache as part of the same application write flow. It helps keep cached values fresh, but adds write latency and requires handling partial failures between the two stores."
 - **Hinglish Quick Memory:** Write-Through mein data update karte waqt MongoDB aur Redis dono update hote hain. Isse cache fresh rakhne mein help milti hai, lekin double write ki wajah se API slow ho sakti hai. Agar ek write fail ho, toh uska handling logic bhi zaroori hai.
 
+# 🚀 Question 41: What Is Write-Behind Cache?
+
+## 📝 Answer (English — Interview Definition)
+
+Write-Behind Cache (also known as Write-Back Caching) is an asynchronous caching strategy where an application writes data to the cache first and persists it to the primary database later in the background.
+
+The application can acknowledge the write after the cache and background job have accepted it, without waiting for the database write to finish. This can improve write throughput, but it introduces a durability risk: if pending changes are lost before they are persisted, the database may not contain the latest data. Reliable queues, retries, idempotent writes, monitoring, and recovery planning are important in production.
+
+## 🗣️ Answer in Hinglish
+
+Write-Behind (Write-Back) caching mein pehle data Redis mein store hota hai, aur main database (MongoDB) mein baad mein background worker ke through save kiya jata hai.
+
+Maan lo aapke MERN stack metrics dashboard par hazaron user activity logs ek sath trigger ho rahe hain:
+
+1. Node.js data ko cache ya queue layer mein write karta hai.
+2. Background job queue mein database-sync task add hota hai.
+3. Worker task ko process karke MongoDB mein data persist karta hai.
+
+- **Main benefit:** Client ko database write complete hone ka wait nahi karna padta, agar application accepted queue job ke baad response return karti hai.
+- **Core risk:** Agar pending change reliable queue mein durably preserve na ho aur cache/queue failure aa jaye, toh database sync hone se pehle data loss ho sakta hai.
+
+## 💻 Practical Code Example (BullMQ Queue Workflow)
+
+~~~javascript
+// queue.js — enqueue a database persistence job
+const { Queue } = require("bullmq");
+
+const connection = { host: "127.0.0.1", port: 6379 };
+const productQueue = new Queue("product-writes", { connection });
+
+async function saveProductWriteBehind(productPayload, redis) {
+  const productId = String(productPayload._id);
+  const cacheKey = "product:" + productId;
+
+  // 1. Update the fast cache
+  await redis.set(cacheKey, JSON.stringify(productPayload));
+
+  // 2. Enqueue the database persistence task
+  await productQueue.add("save-product", {
+    productId,
+    product: productPayload
+  });
+
+  // The job has been enqueued; database persistence happens asynchronously.
+  return { message: "Write accepted for background persistence" };
+}
+
+module.exports = { saveProductWriteBehind };
+~~~
+
+~~~javascript
+// worker.js — persist queued writes to MongoDB
+const { Worker } = require("bullmq");
+
+const connection = { host: "127.0.0.1", port: 6379 };
+
+const databaseSyncWorker = new Worker(
+  "product-writes",
+  async (job) => {
+    const { productId, product } = job.data;
+
+    await Product.findByIdAndUpdate(
+      productId,
+      product,
+      { upsert: true, new: true }
+    );
+
+    console.log("Background database sync completed:", productId);
+  },
+  { connection }
+);
+~~~
+
+## ⚠️ Production Reliability Notes
+
+Write-Behind ko production mein use karte waqt:
+
+- Configure queue persistence and recovery appropriate to the durability target.
+- Add retry and backoff policies for temporary database errors.
+- Make database writes idempotent so retries do not cause duplicate side effects.
+- Monitor queue lag, failed jobs, and dead-letter handling.
+- Be clear that a successful queue acknowledgement is not the same as a committed database write.
+
+## 📊 Performance Matrix
+
+| Metric | Write-Behind Cache Strategy |
+|---|---|
+| Write target order | Cache/queue layer first; database persistence later. |
+| Persistence execution | Asynchronous background worker. |
+| Write execution speed | Can improve client-perceived write latency. |
+| Main risk | Database can lag behind, and pending updates may be lost if not durably preserved. |
+| Suitable use case | High-volume telemetry, activity logs, and workloads that can tolerate delayed persistence. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Write-Behind caching accepts writes into a fast cache or queue and persists them to the primary database asynchronously. It can increase write throughput, but needs durable queueing, retries, idempotent processing, and monitoring to manage delayed persistence and potential data loss."
+- **Hinglish Quick Memory:** Write-Behind mein pehle fast cache/queue mein write accept hota hai, phir background worker MongoDB mein save karta hai. Speed improve ho sakti hai, lekin pending writes ko safe rakhne ke liye durable queue, retries aur monitoring zaroori hain.
+
 ---
 
 *More answers will be added in question order, using this format.*
