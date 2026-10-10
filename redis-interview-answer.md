@@ -7785,6 +7785,138 @@ The application should retry only after validating the latest stock. This helps 
 - **English Pitch:** "Optimistic locking in Redis uses `WATCH` with `MULTI` and `EXEC` to detect concurrent changes. If a watched key changes before `EXEC`, Redis aborts the transaction, allowing the application to read the latest value and retry."
 - **Hinglish Quick Memory:** "`WATCH` key ko monitor karta hai. Agar `WATCH` aur `EXEC` ke beech key change ho jaaye, toh transaction abort ho sakta hai. Application fresh value read karke operation dobara try karti hai."
 
+## 🔥 Level 7 — High Availability & Scaling
+
+# 🚀 Question 88: What Is Redis Replication?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis replication is a mechanism in which a primary Redis server sends its dataset to one or more replica servers.** Replicas maintain copies of the primary's data and can serve read requests. Replication is generally asynchronous, so replicas may temporarily lag behind the primary.
+
+Redis replication improves read scalability and supports high availability when combined with monitoring and failover mechanisms. Replication alone is not a backup and does not guarantee zero data loss.
+
+## 🗣️ Answer in Hinglish
+
+Redis replication ka matlab hai ek primary Redis server ke data ki copies doosre Redis servers par maintain karna.
+
+- **Primary:** Normally write operations handle karta hai.
+- **Replica:** Primary se data copy karta hai aur read requests serve kar sakta hai.
+- Primary par changes hone par replicas un changes ko receive karke apna data update karte hain.
+
+### Real-World Example
+
+Maan lo MERN application par bahut saari read requests aa rahi hain:
+
+- Node.js application data Redis primary par write karti hai.
+- Do replica servers primary se data copy karte hain.
+- Application read traffic ko replicas par distribute kar sakti hai.
+- Agar primary fail ho jaye, toh Sentinel ya Redis Cluster jaise setup failover mein help kar sakte hain, configuration ke according.
+
+**Important:** Replication generally asynchronous hai. Isliye replica par latest write turant available hone ki guarantee nahi hoti.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+            Node.js / MERN Application
+                       |
+                       v
+             +-------------------+
+             |   Redis Primary   |
+             |   Read + Write    |
+             +-------------------+
+                   /       \
+         Replication       Replication
+               /               \
+              v                 v
+     +----------------+  +----------------+
+     | Redis Replica 1|  | Redis Replica 2|
+     |  Read traffic  |  |  Read traffic  |
+     +----------------+  +----------------+
+
+       Sentinel / Cluster may help with failover
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Store data on the primary
+
+On the primary server:
+
+~~~bash
+redis-cli SET product:101 "Laptop"
+redis-cli GET product:101
+~~~
+
+Expected output:
+
+~~~text
+OK
+"Laptop"
+~~~
+
+### Step 2: Configure a replica
+
+On a separate Redis server, connect to that server's CLI and run:
+
+~~~bash
+redis-cli REPLICAOF <primary-host> 6379
+~~~
+
+Replace `<primary-host>` with the primary server's hostname or IP address. The servers must be network-reachable, and authentication/TLS settings must be configured as required.
+
+Older tutorials may use `SLAVEOF`; `REPLICAOF` is the modern command name.
+
+### Step 3: Read replicated data
+
+On the replica:
+
+~~~bash
+redis-cli GET product:101
+~~~
+
+After replication catches up, the result should be:
+
+~~~text
+"Laptop"
+~~~
+
+### Step 4: Check replication status
+
+~~~bash
+redis-cli INFO replication
+~~~
+
+This shows replication information, such as the role (`master` or `slave`/replica) and replica connection status.
+
+**Note:** This example assumes a simple setup. Production environments should configure security, replication topology, monitoring, failover, and persistence appropriately.
+
+## 📊 Important Redis Replication Concepts
+
+| Concept | Explanation |
+|---|---|
+| Primary | Normally accepts writes and propagates changes to replicas |
+| Replica | Maintains a copy of primary data and can serve reads |
+| Asynchronous replication | Replicas may lag behind the primary |
+| Read scalability | Read traffic can be distributed across replicas |
+| High availability | Sentinel or Redis Cluster can support failover, depending on setup |
+| Data loss risk | A failover may lose recent writes that had not reached the promoted replica |
+| Backup | Replication alone is not a substitute for backups |
+
+### Redis Replication vs Redis Cluster
+
+| Feature | Replication | Redis Cluster |
+|---|---|---|
+| Main purpose | Maintain copies of data | Distribute data and support scaling across shards |
+| Data distribution | Each replica generally copies its primary's dataset | Data is partitioned across multiple primary nodes |
+| Read scaling | Replicas can serve reads | Can combine sharding with replicas |
+| Failover | Requires an appropriate failover mechanism | Built-in cluster failover mechanisms |
+| Typical use | Redundancy and read scaling | Horizontal scaling and availability |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis replication copies data from a primary server to one or more replicas. It can improve read scalability and help build highly available architectures when combined with Sentinel or Redis Cluster. Replication is generally asynchronous, so replicas may lag behind and failover does not guarantee zero data loss."
+- **Hinglish Quick Memory:** "Redis replication mein primary ka data replicas par copy hota hai. Primary normally writes handle karta hai aur replicas reads serve kar sakte hain. Isse read scaling aur availability improve ho sakti hai, lekin replication asynchronous hone ki wajah se replica lag aur failover ke time data loss ka risk ho sakta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
