@@ -4186,6 +4186,76 @@ MongoDB update successful ho sakta hai, lekin uske baad Redis invalidation netwo
 - **English Pitch:** "Cache invalidation removes or refreshes stale cache entries after the underlying data changes. In a cache-aside pattern, the application commonly updates the database and deletes related Redis keys with `DEL`, allowing subsequent reads to reload the current data."
 - **Hinglish Quick Memory:** Database mein change hua toh related Redis keys delete ya refresh karo. Cache-aside mein common pattern hai MongoDB update ke baad `redis.del()` chalana, taaki next request fresh data load kar sake.
 
+# 🚀 Question 48: What Is Cache Invalidation?
+
+## 📝 Answer (English — Interview Definition)
+
+Cache invalidation is the process of removing or refreshing cached data when the underlying source data changes. It is important for consistency because an application can otherwise continue serving an outdated cached value after the primary database has been updated.
+
+In Redis, applications commonly invalidate affected keys with `DEL` or use `UNLINK` when asynchronous memory reclamation is preferred. In a cache-aside flow, the application usually updates the database first and then deletes the related cache keys, allowing a later read to reload the current data. This improves freshness, although a database update and a Redis invalidation call are not automatically one atomic transaction.
+
+## 🗣️ Answer in Hinglish
+
+Cache Invalidation ka matlab hai Redis mein stored purane ya stale data ko delete ya refresh karna, jab MongoDB mein original data change ho jaata hai.
+
+Maan lo MERN project mein admin product ki price ₹500 se ₹700 kar deta hai, lekin Redis cache mein abhi bhi ₹500 hai. Invalidation nahi hui toh customer ko purana price dikh sakta hai.
+
+~~~text
+[ Admin Updates Product ]
+            |
+            v
+[ Node.js / Express Controller ]
+            |
+            v
+[ Update MongoDB First ]
+            |
+            v
+[ Invalidate Related Redis Keys ]
+  product:101  +  products:all
+            |
+            v
+[ Next Read Can Load Fresh Data ]
+~~~
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+async function updateProductAndInvalidateCache(productId, updateData) {
+  // 1. Update the source of truth in MongoDB
+  const product = await Product.findByIdAndUpdate(
+    productId,
+    updateData,
+    { new: true, runValidators: true }
+  ).lean();
+
+  if (!product) {
+    throw new Error("Target product model not found inside database");
+  }
+
+  // 2. Invalidate the individual-product and product-list cache keys
+  await redis.del([ `product:${productId}`, "products:all" ]);
+
+  return product;
+}
+~~~
+
+## 📋 Cache Invalidation Strategy Table
+
+| Invalidation Approach | Operational Mechanism | Risk / Trade-off |
+|---|---|---|
+| Active purge (`DEL`) | Delete affected keys after a successful database update. | The next read may be slower because it has to repopulate the cache. |
+| Cache overwriting | Write the latest value to Redis. | Application must update every affected cache representation correctly. |
+| TTL expiration | Let keys expire after a configured interval. | Stale data may still be served until the TTL expires. |
+
+### ⚠️ Production Consideration
+
+MongoDB update successful ho sakta hai, lekin Redis invalidation network timeout ya Redis outage ke kaaran fail ho sakti hai. Retry handling, monitoring, TTLs, or an outbox/event-driven invalidation workflow can help reduce this risk. A plain MongoDB update followed by `redis.del()` does not guarantee strict consistency across both systems.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Cache invalidation removes or refreshes outdated cached entries after the source data changes. In a cache-aside design, the application commonly updates the database and deletes related Redis keys so later reads can load the current data."
+- **Hinglish Quick Memory:** Database mein change hua toh related Redis keys delete ya refresh karo. MongoDB update ke baad `redis.del()` chalane se next request cache miss par fresh data load kar sakti hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
