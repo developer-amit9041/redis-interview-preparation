@@ -6159,6 +6159,60 @@ New order placed
 - **English Pitch:** "A Redis channel is a named destination used in Pub/Sub communication. Publishers send messages to channels, and Redis broadcasts them to currently subscribed clients. Channels enable real-time, loosely coupled communication between application services."
 - **Hinglish Quick Memory:** "Redis channel ek naam wala communication route hai. Publisher `PUBLISH` se message bhejta hai aur subscriber `SUBSCRIBE` se message receive karta hai. Ek channel par multiple subscribers ho sakte hain, lekin Redis Pub/Sub messages ko persist nahi karta."
 
+# 🚀 Question 73: Redis Pub/Sub vs Kafka?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Pub/Sub** is a lightweight, real-time messaging mechanism that broadcasts messages to currently connected subscribers. It does not persist messages, so offline subscribers can miss them.
+
+**Apache Kafka** is a distributed event-streaming platform that stores events durably and allows consumers to read or replay them. It is designed for high-throughput event pipelines, data integration, and event-driven architectures.
+
+## 🗣️ Answer in Hinglish
+
+Redis Pub/Sub aur Kafka dono services ke beech messages communicate karne ke liye use hote hain, lekin dono ka purpose alag hai.
+
+- **Redis Pub/Sub:** Jab hume message ko real-time mein active subscribers tak broadcast karna ho aur message history ki zaroorat na ho.
+- **Kafka:** Jab messages ko store karna, baad mein replay karna, aur large-scale event processing karni ho.
+
+### Example
+
+E-commerce application mein:
+
+- Redis Pub/Sub se live dashboard ya temporary notification update broadcast kar sakte hain.
+- Kafka se `order_created`, `payment_completed` jaise events ko durably store karke analytics, reporting aur doosre consumers ke liye process kar sakte hain.
+
+## 📊 Comparison Table
+
+| Feature | Redis Pub/Sub | Kafka |
+|---|---|---|
+| Main purpose | Real-time message broadcasting | Distributed event streaming |
+| Message storage | Messages persist nahi hote | Events configured retention ke according store hote hain |
+| Offline consumer | Message miss kar sakta hai | Stored event baad mein consume kar sakta hai |
+| Replay | Supported nahi | Supported |
+| Delivery model | At-most-once | Delivery semantics configuration par depend karti hain; idempotency/exactly-once ke liye suitable setup zaroori hai |
+| Scalability | Simple, low-latency broadcast | High-throughput, distributed event processing |
+| Complexity | Relatively simple | Generally more operational setup |
+| Best use case | Live updates, ephemeral notifications | Event history, analytics, data pipelines |
+
+## 💻 Simple Example
+
+Redis Pub/Sub commands:
+
+```bash
+# Subscriber terminal
+redis-cli SUBSCRIBE order_events
+
+# Publisher terminal
+redis-cli PUBLISH order_events "order_created"
+```
+
+Kafka mein publisher `order_events` topic par event produce karta hai, aur consumer us topic se event read karta hai. Kafka event ko configured retention period tak store kar sakta hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I would choose Redis Pub/Sub for lightweight, real-time broadcasting. I would choose Kafka when I need durable event storage, replay, and scalable event processing."
+- **Hinglish Quick Memory:** "Redis Pub/Sub live broadcast ke liye hai—message history nahi hoti. Kafka events ko store karta hai, aur consumers baad mein unhe read ya replay kar sakte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
