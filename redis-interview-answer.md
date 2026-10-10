@@ -3439,6 +3439,113 @@ MongoDB ko core permanent business records ka source of truth rakh sakte hain, w
 - **English Pitch:** "We use Redis for caching because its in-memory architecture offers low-latency access, while TTL, atomic operations, and rich data structures make cache management easier. Redis reduces repeated reads against the primary database, but cache invalidation and memory policies still need to be designed."
 - **Hinglish Quick Memory:** Redis ki RAM-based speed repeated reads ko fast banati hai. TTL se cache expire hota hai, HSET se object fields handle ho sakte hain, aur INCR jaise atomic commands counters ke liye useful hain. Isse MongoDB ka repeated read workload kam ho sakta hai.
 
+# 🚀 Question 38: How Does Redis Caching Work with Node.js?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis caching in Node.js works by placing a high-speed, asynchronous cache between Express route controllers and the primary persistent database.
+
+When an API request reaches the Node.js server, the application checks Redis with GET. If the key exists (a **Cache Hit**), the value is parsed and returned to the client. If the key is absent (a **Cache Miss**), Node.js queries the primary database, serializes the result as JSON, stores it in Redis with a Time-To-Live (TTL), and returns the result.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo aapke MERN project mein user products ki list baar-baar request karta hai. Node.js aur Redis ka execution flow is tarah kaam karta hai:
+
+- **Step 1:** Frontend request backend router par aati hai. Node.js pehle `redis.get()` se Redis mein data check karta hai.
+- **Step 2:** Agar data Redis mein mil gaya, toh wahin se return hota hai. Ise **Cache Hit** kehte hain.
+- **Step 3:** Agar data nahi mila, toh **Cache Miss** hota hai. Backend MongoDB se fresh data fetch karta hai.
+- **Step 4:** MongoDB se data aane ke baad Node.js `JSON.stringify()` aur `redis.set()` se uski copy cache mein store karta hai, usually TTL ke saath.
+
+~~~text
+[ React Client ] ──► [ Node.js / Express Route ]
+                                |
+                                v
+                       Check Redis cache
+                                |
+                 +--------------+--------------+
+                 |                             |
+                 v                             v
+            [ Cache Hit ]                [ Cache Miss ]
+          Return cached data              Query MongoDB
+                                                 |
+                                                 v
+                                          Store in Redis
+                                                 |
+                                                 v
+                                            Return data
+~~~
+
+## 💻 Practical Code Example (Node.js + Redis + MongoDB)
+
+~~~javascript
+const express = require("express");
+const { createClient } = require("redis");
+const mongoose = require("mongoose");
+
+const app = express();
+
+const redisClient = createClient({ url: "redis://localhost:6379" });
+redisClient.on("error", console.error);
+
+const Product = mongoose.model(
+  "Product",
+  new mongoose.Schema({ name: String, price: Number })
+);
+
+app.get("/products", async (req, res) => {
+  try {
+    const cacheKey = "products:all";
+
+    // 1. Check Redis first
+    const cachedData = await redisClient.get(cacheKey);
+
+    if (cachedData) {
+      return res.json({
+        source: "Redis Cache Layer",
+        products: JSON.parse(cachedData)
+      });
+    }
+
+    // 2. Cache miss: fetch from MongoDB
+    const products = await Product.find().lean();
+
+    // 3. Cache data for 60 seconds
+    await redisClient.set(cacheKey, JSON.stringify(products), { EX: 60 });
+
+    // 4. Return the response
+    return res.json({
+      source: "MongoDB Database Source",
+      products
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server data layer error" });
+  }
+});
+
+async function startServer() {
+  await mongoose.connect("mongodb://127.0.0.1:27017/shop");
+  await redisClient.connect();
+  app.listen(3000, () => console.log("Server listening on port 3000"));
+}
+
+startServer().catch(console.error);
+~~~
+
+## 📋 Core Integration Concepts Reference Table
+
+| Caching Event | Technical Meaning | Node.js / Redis Operation |
+|---|---|---|
+| Cache Hit | Key exists in Redis. | `await redisClient.get(key)` returns a value. |
+| Cache Miss | Key is missing or expired. | GET returns `null`; query the primary database. |
+| Populate Cache | Store the query result in Redis. | `await redisClient.set(key, value, { EX: sec })` |
+| TTL | Automatic expiration boundary. | For example, `{ EX: 60 }` |
+| Cache Invalidation | Remove stale cached data after a source update. | `await redisClient.del(key)` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "In a Node.js application, Redis is checked before the primary database. A cache hit returns the stored result; on a cache miss, the application queries MongoDB, stores the result in Redis with a TTL, and returns it to the client."
+- **Hinglish Quick Memory:** Node.js controller pehle `redis.get()` chalata hai. Data mil gaya toh Cache Hit; nahi mila toh MongoDB se fetch karke `JSON.stringify()` aur `redis.set()` ke through TTL ke saath cache mein store karta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
