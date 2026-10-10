@@ -5,7 +5,7 @@ Redis interview questions and answers are separated into two files so the questi
 ## Files
 
 - **[Redis Interview Questions](./redis-interview-question.md)** — the complete 140-question list organized into 9 levels.
-- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q118, through “What Happens If Redis Goes Down?”
+- **[Redis Interview Answers](./redis-interview-answer.md)** — answers in English + Hinglish, with practical examples. Currently includes Q1–Q119, through “Should an Application Fail If Redis Is Unavailable?”
 
 ## Study Format
 
