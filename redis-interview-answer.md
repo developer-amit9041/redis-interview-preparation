@@ -8160,6 +8160,97 @@ Redis replication asynchronous hoti hai, isliye Sentinel ya Cluster hone se zero
 - **English Pitch:** "When a Redis primary fails, writes may become temporarily unavailable. If Redis Sentinel or Redis Cluster is configured, an eligible replica can be promoted to a new primary. The application must discover and reconnect to the new primary. Since replication is asynchronous, some recently acknowledged writes may be lost."
 - **Hinglish Quick Memory:** "Primary fail hone par writes temporarily unavailable ho sakti hain. Sentinel ya Redis Cluster configured ho toh Replica promote hoke naya Primary ban sakta hai. Application ko naye Primary se reconnect karna hota hai. Asynchronous replication ke kaaran kuch recent writes lost bhi ho sakti hain."
 
+# 🚀 Question 91: What Is Redis Sentinel?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Sentinel is a high-availability system for Redis that monitors primary and replica instances, detects failures, and can perform automatic failover.** It also helps clients discover the current primary after a failover and can send notifications about monitored Redis instances.
+
+Sentinel is generally used with Redis primary-replica setups when high availability is required without Redis Cluster sharding.
+
+## 🗣️ Answer in Hinglish
+
+Redis Sentinel ek monitoring aur high-availability system hai. Yeh Redis ke **primary** aur **replica** servers ko monitor karta hai.
+
+Maan lo primary Redis server down ho gaya:
+
+1. Sentinel Redis servers ki health check karta hai.
+2. Multiple Sentinel instances milkar determine karte hain ki primary genuinely unavailable hai ya nahi.
+3. Required agreement milne par Sentinel failover initiate kar sakta hai.
+4. Available replica ko promote karke naya primary banaya ja sakta hai.
+5. Clients Sentinel se current primary ki information discover kar sakte hain.
+
+**Important:** Sentinel Redis data ko shard nahi karta. Iska main purpose monitoring, failover aur primary discovery hai. Failover ke dauran brief interruption ho sakta hai, aur asynchronous replication ki wajah se kuch recent writes lost hone ka risk bhi hota hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+            Application / Client
+                    |
+                    | Discover current primary
+                    v
+           +--------------------+
+           |  Redis Sentinel    |
+           |  Sentinel 1, 2, 3  |
+           +--------------------+
+                    |
+             Monitor Redis nodes
+                    |
+          +---------+---------+
+          |                   |
+          v                   v
+   Redis Primary          Redis Replica
+     (writes)             (replicated data)
+
+If primary fails:
+Sentinel coordinates failover
+          |
+          v
+Available replica is promoted
+          |
+          v
+Client discovers the new primary
+~~~
+
+## 💻 Practical Redis CLI Example
+
+Sentinel-enabled Redis setup mein Sentinel ke through current primary discover kar sakte hain:
+
+~~~bash
+redis-cli -p 26379 SENTINEL get-master-addr-by-name mymaster
+~~~
+
+Yahan:
+
+- `26379` Sentinel ka commonly used default port hai.
+- `mymaster` Sentinel configuration mein defined monitored primary ka logical name hai.
+- Command current primary ka address aur port return karti hai.
+
+Example output:
+
+~~~text
+1) "127.0.0.1"
+2) "6379"
+~~~
+
+Yeh example output hai; actual address aapke setup par depend karega.
+
+## 📊 Important Points
+
+| Feature | Explanation |
+|---|---|
+| Monitoring | Primary aur replicas ki availability monitor karta hai |
+| Failure detection | Primary unavailable hone ka detection coordinate karta hai |
+| Automatic failover | Configuration aur quorum conditions meet hone par failover initiate kar sakta hai |
+| Primary discovery | Clients ko current primary ka address discover karne mein help karta hai |
+| Data sharding | Sentinel khud data shard nahi karta |
+| Common port | `26379` by default |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Sentinel provides high availability by monitoring Redis primary and replica instances, detecting failures, coordinating failover, and helping clients discover the current primary. It improves availability but does not provide data sharding like Redis Cluster."
+- **Hinglish Quick Memory:** "Redis Sentinel primary aur replicas ko monitor karta hai. Primary fail hone par yeh failover coordinate karke replica ko naya primary banane mein help karta hai. Yeh high availability ke liye hai, data sharding ke liye nahi."
+
 ---
 
 *More answers will be added in question order, using this format.*
