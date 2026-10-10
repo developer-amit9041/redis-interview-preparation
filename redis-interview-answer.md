@@ -13666,6 +13666,137 @@ Production application mein Redis connection ko generally application lifetime t
 - **English Pitch:** "Redis pipelining allows a client to send multiple commands without waiting for each command's response individually. It reduces network round trips and can improve throughput. However, pipelining does not make the commands atomic."
 - **Hinglish Quick Memory:** "Pipelining mein multiple Redis commands ek batch mein bhejte hain, har command ke response ka alag wait nahi karte. Isse network round trips kam aur performance better ho sakti hai. Lekin pipelining aur transaction same nahi hain—pipelining apne aap atomicity provide nahi karti."
 
+# 🚀 Question 135: Why Is Redis Pipelining Useful?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis pipelining allows a client to send multiple Redis commands without waiting for each individual response.** The client sends a batch of commands and then reads their responses together. This reduces network round trips and can improve throughput, especially when an application needs to execute many Redis operations.
+
+## 🗣️ Answer in Hinglish
+
+Redis pipelining ka use tab hota hai jab application ko bahut saari Redis commands execute karni hoti hain.
+
+**Without pipelining:** Application ek command send karti hai, response ka wait karti hai, phir next command send karti hai. Ismein network round trips zyada ho sakte hain.
+
+**With pipelining:** Application multiple commands ek batch mein send kar deti hai aur baad mein unke responses receive karti hai. Isse har command ke response ka individually wait karne ka overhead reduce hota hai.
+
+**Main benefit:** Kam network round trips aur better throughput. Pipelining command ke actual execution ko automatically faster nahi banati; yeh mainly client-server communication ko more efficient banati hai.
+
+## 🏗️ Architecture Diagram
+
+### Without Pipelining
+
+~~~text
+Client -- Command 1 --> Redis
+Client <-- Response 1 -- Redis
+
+Client -- Command 2 --> Redis
+Client <-- Response 2 -- Redis
+
+Client -- Command 3 --> Redis
+Client <-- Response 3 -- Redis
+~~~
+
+### With Pipelining
+
+~~~text
+Client -- Command 1 --+
+       -- Command 2 --+--> Redis
+       -- Command 3 --+
+
+Client <-- Responses 1, 2, 3 together <-- Redis
+~~~
+
+## 💻 Practical Example — Node.js + Redis
+
+The following example uses the `ioredis` package.
+
+### Without pipelining
+
+~~~javascript
+const Redis = require("ioredis");
+const redis = new Redis();
+
+async function withoutPipeline() {
+  await redis.set("user:1:name", "Amit");
+  await redis.set("user:2:name", "Rahul");
+  await redis.incr("page_views");
+
+  const name = await redis.get("user:1:name");
+  console.log(name);
+}
+
+withoutPipeline()
+  .catch(console.error)
+  .finally(() => redis.quit());
+~~~
+
+Har `await` command ke response ka wait karta hai before the next command starts.
+
+### With pipelining
+
+~~~javascript
+const Redis = require("ioredis");
+const redis = new Redis();
+
+async function withPipeline() {
+  const pipeline = redis.pipeline();
+
+  pipeline.set("user:1:name", "Amit");
+  pipeline.set("user:2:name", "Rahul");
+  pipeline.incr("page_views");
+  pipeline.get("user:1:name");
+
+  const results = await pipeline.exec();
+
+  for (const [error, result] of results) {
+    if (error) {
+      console.error("Redis command failed:", error);
+    } else {
+      console.log(result);
+    }
+  }
+}
+
+withPipeline()
+  .catch(console.error)
+  .finally(() => redis.quit());
+~~~
+
+### Code kaise work karta hai?
+
+1. `pipeline()` pipeline create karta hai.
+2. Commands pipeline mein add hoti hain.
+3. `exec()` commands ko Redis ko batch mein bhejta hai aur responses return karta hai.
+4. Har result `[error, result]` format mein hota hai, isliye individual command errors bhi check karne chahiye.
+
+Is example mein commands pipeline ke saath execute hoti hain, lekin woh transaction nahi ban jaati.
+
+## 📊 Important Comparison
+
+| Feature | Normal Commands | Pipelining | Transaction (`MULTI` / `EXEC`) |
+|---|---|---|---|
+| Commands sent | Usually separately | Batch mein | Commands queue karke `EXEC` par |
+| Network round trips | Zyada ho sakte hain | Reduce hote hain | Depends on how commands are sent |
+| Main purpose | Simple Redis operations | Communication overhead reduce karna | Commands ko isolated transaction mein execute karna |
+| Transactional isolation | Nahi | Nahi, by itself | Haan, queued command execution ke dauraan |
+| Automatic rollback on runtime error | Nahi | Nahi | Nahi |
+| Best use case | Few commands | Many independent Redis operations | Related commands needing transactional execution |
+
+## ⚠️ Practical Considerations
+
+- **Batch size:** Bahut bada pipeline client aur server memory par pressure daal sakta hai. Commands ko manageable batches mein bhejo.
+- **Error handling:** `exec()` ke results mein individual command errors check karo.
+- **Command dependencies:** Agar next command ko previous command ka result chahiye, toh pipeline design carefully karo.
+- **Atomicity:** Pipelining by itself commands ko ek atomic transaction nahi banata.
+
+**Interview point:** Pipelining network communication optimize karta hai; transactional isolation ke liye `MULTI`/`EXEC` use hota hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis pipelining improves performance by allowing multiple commands to be sent without waiting for each individual response. This reduces network round-trip overhead and can increase throughput. However, pipelining does not provide transactional isolation; I would use `MULTI` and `EXEC` when transaction semantics are required."
+- **Hinglish Quick Memory:** "Redis pipelining mein multiple commands ek batch mein send karte hain aur responses baad mein receive karte hain. Isse network round trips kam hote hain aur throughput improve ho sakta hai. Lekin pipeline transaction nahi hai; atomic transaction ke liye `MULTI`/`EXEC` use karte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
