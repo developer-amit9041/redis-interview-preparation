@@ -2276,6 +2276,165 @@ MERN backend architecture design karte waqt operational differences ke according
 - **English Pitch:** "A Redis List is a strictly ordered sequence that tolerates duplicate strings, making it excellent for FIFO execution queues. In contrast, a Redis Set is an unordered domain that eliminates duplicates natively, optimized for membership analytics and high-speed distinct tagging streams."
 - **Hinglish Quick Memory:** List matlab queue jahan elements line se lagte hain aur ek naam do baar aa sakta hai (RPUSH system). Set matlab duplicate-free system jahan data random rehta hai par jo bhi item hoga woh single unique entity hoga (SADD system).
 
+# 🚀 Question 24: What Is the SET Command in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+The SET command in Redis is the primary write operation used to assign a string value to a specified key.
+
+By default, if the key already exists in memory, SET will overwrite the existing value and clear any previously associated Time-To-Live (TTL) configuration. The modern SET command is highly versatile as it supports sub-arguments for complex operations, such as structural data expiration (EX/PX) and conditional logic (NX/XX), effectively replacing older standalone commands like SETEX and SETNX.
+
+## 🗣️ Answer in Hinglish
+
+Redis ka SET command kisi bhi unique key ke against value ko memory (RAM) mein store karne ke liye use hota hai.
+
+~~~text
+Syntax: SET <key> <value> [options]
+
+Example: SET username "Amit"
+~~~
+
+### 💡 Key Behaviors & Options
+
+- **Overwrite Behavior:** Agar username naam ki key pehle se bani hui hai, toh dobara SET chalane par purani value bina kisi error ke naye data se replace ho jayegi.
+- **Conditional Flags:** Aap SET command ke sath conditional options pass kar sakte ho (jaise data ko sirf tabhi save karna jab wo pehle se exist na karta ho, jo distributed locks banane mein kaam aata hai).
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. Basic Write Operation
+  await redis.set("username", "Amit");
+
+  // 2. Existing value ko overwrite/replace karna
+  await redis.set("username", "Rahul");
+  console.log("Updated Value:", await redis.get("username")); // Output: Rahul
+
+  // 3. Conditional Writes with Expiry (TTL: 300 seconds / 5 minutes)
+  await redis.set("otp:user101", "482913", {
+    EX: 300
+  });
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Distributed Cache Population)
+
+MERN stack development mein complex application queries ka raw outcome target cache node par store karne ke liye SET best solution hai:
+
+~~~javascript
+// Database aggregate results ko stringify karke 5 minutes ke liye save karna
+await redis.set(
+  "product:101",
+  JSON.stringify({ name: "Laptop", price: 50000 }),
+  { EX: 300 }
+);
+~~~
+
+## 📋 Core Command Modifiers Table
+
+| Advanced Syntax Option | Technical Purpose | Production Use Case |
+|---|---|---|
+| SET key value | Direct value write ya existing value ko replace karna. | Application settings or flat configuration constants. |
+| SET key value EX 60 | Value write karna aur 60 seconds ka auto-expiry TTL timer set karna. | Temporary auth verification codes (OTPs). |
+| SET key value NX | "Not eXists" — Sirf tabhi set karega agar key memory mein pehle se nahi hai. | Building distributed locks in multi-server nodes. |
+| SET key value XX | "eXists" — Sirf tabhi update karega agar key memory mein pehle se active ho. | Explicitly updating existing active tokens only. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "The Redis SET command maps a binary-safe string value to a key, overwriting existing records by default. It natively handles advanced parameters like EX for temporal expiration and NX for conditional locking, acting as the foundation for stateful data orchestration."
+- **Hinglish Quick Memory:** SET command memory mein naya data likhta hai ya purane ko badalta hai. Naye client drivers mein hum EX daal kar expiry laga sakte hain, NX lagane par data tabhi save hoga jab vo pehle se wahan na ho, aur XX se sirf updating ka kaam hota hai.
+
+---
+
+# 🚀 Question 25: What Is the GET Command in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+The GET command in Redis is the fundamental read operation designed to retrieve the string value associated with a specified key.
+
+If the targeted key exists in memory, GET returns its exact string value. If the key does not exist or has already been removed by the background eviction/expiration engines, Redis returns a nil (represented as null in Node.js) response. It is crucial to remember that GET only operates on Redis Strings; executing it against other data types like Hashes or Lists will trigger a strict structural type error.
+
+## 🗣️ Answer in Hinglish
+
+Redis ka GET command kisi bhi specific key ki stored value ko read (retrieve) karne ke liye use kiya jata hai.
+
+~~~text
+Syntax: GET <key>
+
+Example: GET username ──► Returns: "Rahul"
+~~~
+
+### ⚠️ Structural Error Alert
+
+Interview mein yaad rakhna ki GET sirf Strings data type ke sath hi kaam karta hai. Agar aapne ek key ko HSET (Hash) ya LPUSH (List) se save kiya hai aur aap use GET command se read karne ki koshish karoge, toh Redis WRONGTYPE Operation ka error throw kar dega. Hashes ke liye HGET aur Lists ke liye LRANGE hi standard commands hain.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // Test environment setup
+  await redis.set("username", "Amit");
+
+  // 1. Existing Active Key ko read karna
+  const activeUser = await redis.get("username");
+  console.log("Found User Data:", activeUser); // Output: Amit
+
+  // 2. Missing ya Expired Key ko access karna
+  const invalidData = await redis.get("unknown:key:path");
+  console.log("Missing Key Response:", invalidData); // Output: null
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Cache-Aside Performance Route)
+
+Express application routes ke controllers mein database layers ko stress-free rakhne ke liye logic is tarah apply kiya jata hai:
+
+~~~javascript
+// Step 1: Check if product metadata is already present in memory
+const cachedPayload = await redis.get("product:101");
+
+if (cachedPayload) {
+  // Cache Hit -> Direct return parsed data back to React frontend
+  return JSON.parse(cachedPayload);
+}
+
+// Step 2: Cache Miss -> Fallback execution downwards to Mongoose model query
+~~~
+
+## 📋 Operational Commands Comparison Table
+
+| Reading Command | Target Data Type Structure | Expected Failure Behavior |
+|---|---|---|
+| GET key | Redis Strings / Serialized JSON | Returns null if the key is missing or expired. |
+| MGET key1 key2 | Multiple String Keys | Returns an array where missing items are marked as null. |
+| HGET key field | Redis Hashes (Object Properties) | Returns null if either the master key or the internal field doesn't exist. |
+| LRANGE key start stop | Redis Lists (Arrays) | Returns an empty array [] if the list key is not found. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "The Redis GET command pulls the string values mapped to a specific key, returning null if the data is absent or expired. It forms the standard backbone for cache-read lookups, configuration fetches, and authentication token verifications."
+- **Hinglish Quick Memory:** GET command ka simple kaam hai key do aur data lo. Agar key memory mein active nahi hai ya uska TTL khatam ho chuka hai, toh response mein null milega. Yeh command strictly dynamic strings ke liye hai, baki object types par lagane par data type ka constraint error milega.
+
 ---
 
 *More answers will be added in question order, using this format.*
