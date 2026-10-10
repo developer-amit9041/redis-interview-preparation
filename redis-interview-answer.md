@@ -13797,6 +13797,106 @@ Is example mein commands pipeline ke saath execute hoti hain, lekin woh transact
 - **English Pitch:** "Redis pipelining improves performance by allowing multiple commands to be sent without waiting for each individual response. This reduces network round-trip overhead and can increase throughput. However, pipelining does not provide transactional isolation; I would use `MULTI` and `EXEC` when transaction semantics are required."
 - **Hinglish Quick Memory:** "Redis pipelining mein multiple commands ek batch mein send karte hain aur responses baad mein receive karte hain. Isse network round trips kam hote hain aur throughput improve ho sakta hai. Lekin pipeline transaction nahi hai; atomic transaction ke liye `MULTI`/`EXEC` use karte hain."
 
+# 🚀 Question 136: What Is Lua Scripting in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+**Lua scripting in Redis allows you to execute a Lua script directly on the Redis server.** A script can perform multiple Redis operations in one server-side execution, reducing network round trips and executing without other clients' commands interleaving while the script runs. This is useful when several steps must be performed together, such as checking inventory and decrementing stock.
+
+Redis scripts are commonly executed with `EVAL`. Scripts should be kept short because a running script blocks normal command processing on that Redis server.
+
+## 🗣️ Answer in Hinglish
+
+Redis mein Lua scripting ka matlab hai ki hum Lua language mein script likhkar usse directly Redis server par execute kara sakte hain.
+
+Maan lo e-commerce application mein product ka stock check karna hai aur stock sufficient ho toh usse decrease karna hai. Agar Node.js se alag-alag commands bhejenge, toh beech mein kisi doosre client ka command execute ho sakta hai. Lua script mein check aur update ek hi server-side execution mein kar sakte hain.
+
+**Important points:**
+- `EVAL` command Lua script execute karta hai.
+- `KEYS` se script ko Redis key names pass karte hain.
+- `ARGV` se extra arguments/values pass karte hain.
+- Script execution ke dauraan doosre clients ke commands interleave nahi hote.
+- Script short rakho, kyunki long-running script Redis command processing ko block kar sakti hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+Node.js Application
+        |
+        | EVAL + script + keys + arguments
+        v
+    Redis Server
+        |
+        | Execute Lua script
+        v
+ Check condition -> Update value -> Return result
+        |
+        v
+Node.js receives one result
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Example: Check and decrease product stock
+
+Pehle stock set karo:
+
+~~~bash
+SET product:101:stock 10
+~~~
+
+Ab Lua script execute karo. Yeh check karti hai ki 2 items ke liye stock available hai ya nahi. Stock sufficient ho toh hi decrement hota hai:
+
+~~~bash
+EVAL "local stock = tonumber(redis.call('GET', KEYS[1]) or '0'); local requested = tonumber(ARGV[1]); if stock < requested then return {err='Insufficient stock'} end; redis.call('DECRBY', KEYS[1], requested); return tonumber(redis.call('GET', KEYS[1]))" 1 product:101:stock 2
+~~~
+
+Expected result:
+
+~~~text
+(integer) 8
+~~~
+
+Ab current stock check karo:
+
+~~~bash
+GET product:101:stock
+~~~
+
+Output:
+
+~~~text
+"8"
+~~~
+
+### Is command ka breakdown
+
+| Part | Meaning |
+|---|---|
+| `EVAL` | Lua script execute karta hai |
+| Script string | Stock read, validate aur update karne ka logic |
+| `1` | Script ke liye ek Redis key provide ki gayi hai |
+| `product:101:stock` | `KEYS[1]` — stock key |
+| `2` | `ARGV[1]` — requested quantity |
+| `redis.call()` | Script ke andar Redis command call karta hai |
+
+Agar stock requested quantity se kam hai, toh script error return karegi aur decrement command tak nahi pahunchegi.
+
+## 📊 Lua Scripting vs Separate Redis Commands
+
+| Feature | Separate commands from app | Lua script |
+|---|---|---|
+| Network round trips | Multiple ho sakte hain | One script request |
+| Server-side logic | Application mein split ho sakta hai | Redis ke andar run hota hai |
+| Interleaving between steps | Possible between separate requests | Script execution ke dauraan doosre client commands interleave nahi hote |
+| Best use case | Simple independent operations | Short, multi-step Redis logic that needs atomic execution |
+| Main caution | Extra round trips and concurrency design | Long-running scripts block Redis command processing |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Lua scripting lets us execute logic directly inside Redis using commands such as `EVAL`. It can combine multiple Redis operations into one server-side execution, reduce network round trips, and prevent other clients' commands from interleaving while the script runs. Scripts should remain short because they block command processing while executing."
+- **Hinglish Quick Memory:** "Lua scripting mein hum Redis server ke andar script execute karte hain. `EVAL` script chalata hai, `KEYS` key names deta hai aur `ARGV` extra values. Isse stock check aur decrement jaise steps ek atomic server-side execution mein ho sakte hain. Script short rakhna zaroori hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
