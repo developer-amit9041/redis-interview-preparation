@@ -11037,6 +11037,153 @@ If `INCR` and `EXPIRE` are sent as separate commands, an application or connecti
 - **English Pitch:** "I implement rate limiting using Redis by maintaining a request counter per client and attaching a time-to-live to it. Requests below the configured limit are allowed, while requests exceeding the limit receive HTTP 429. For reliable concurrent updates, I can use an atomic Redis Lua script. Redis also allows multiple application instances to share the same counters."
 - **Hinglish Quick Memory:** "Redis mein user ya IP ke liye counter maintain karte hain. Request aane par counter increment hota hai, aur limit exceed hone par `429 Too Many Requests` return karte hain. `INCR` aur expiry ko Lua script mein rakhne se counter update atomic rehta hai. Multiple Node.js servers bhi same Redis counter use kar sakte hain."
 
+# 🚀 Question 114: How Do You Implement a Distributed Lock Using Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+A **distributed lock in Redis** coordinates access to a shared resource across multiple application instances. A client can acquire a lock using `SET key unique-token NX PX ttl`, where `NX` allows acquisition only if the key does not exist and `PX` sets an expiry in milliseconds.
+
+A client should release the lock only if the stored token still matches its own token. This prevents a client from accidentally deleting a lock acquired by another client.
+
+## 🗣️ Answer in Hinglish
+
+Distributed lock ka use tab karte hain jab multiple Node.js servers ek hi shared resource ko process kar rahe hon aur hume ek waqt par ek hi owner ko critical section access dena ho.
+
+1. Client ek unique token generate karta hai.
+2. Redis mein `SET lock-key token NX PX 10000` command bhejta hai.
+3. Lock available ho toh Redis key create karta hai aur client ko success milti hai.
+4. Doosre client ne lock le rakha ho toh acquisition fail hoti hai.
+5. TTL abandoned lock ke indefinitely stuck rehne ka risk kam karti hai.
+6. Work complete hone par client sirf tab lock delete karta hai jab stored token uske apne token se match kare.
+
+**Important:** `SETNX` aur `EXPIRE` ko alag commands mein chalane ke bajaye `SET ... NX PX` use karo, taaki lock acquisition aur TTL ek hi atomic command mein set ho.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       Node.js Server A
+              |
+              | SET lock:order:101 token-A NX PX 10000
+              v
+          Redis Server
+              |
+       Is lock available?
+          /         \
+        Yes          No
+         |            |
+         v            v
+  Lock acquired    Retry or skip
+         |
+         v
+  Process critical work
+         |
+         v
+ Release only if token matches
+~~~
+
+## 💻 Practical Example — Node.js + Redis
+
+Install the Redis client:
+
+~~~bash
+npm install redis
+~~~
+
+This example uses the node-redis v4-style API:
+
+~~~javascript
+const { createClient } = require("redis");
+const { randomUUID } = require("crypto");
+
+const redis = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redis.on("error", (err) => {
+  console.error("Redis error:", err);
+});
+
+const RELEASE_LOCK_SCRIPT = `
+  if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
+  else
+    return 0
+  end
+`;
+
+async function doOrderWork(orderId) {
+  console.log("Processing order:", orderId);
+  // Replace with your real business logic.
+}
+
+async function processOrder(orderId) {
+  const lockKey = `lock:order:${orderId}`;
+  const token = randomUUID();
+  const ttlMs = 10_000;
+
+  // Acquire the lock only if it does not already exist.
+  const acquired = await redis.set(lockKey, token, {
+    NX: true,
+    PX: ttlMs,
+  });
+
+  if (acquired !== "OK") {
+    console.log("Lock already held; skip or retry:", orderId);
+    return;
+  }
+
+  try {
+    console.log("Lock acquired:", orderId);
+    await doOrderWork(orderId);
+  } finally {
+    // Compare the owner token and delete atomically.
+    await redis.eval(RELEASE_LOCK_SCRIPT, {
+      keys: [lockKey],
+      arguments: [token],
+    });
+  }
+}
+
+async function main() {
+  await redis.connect();
+
+  try {
+    await processOrder("101");
+  } finally {
+    await redis.quit();
+  }
+}
+
+main().catch(console.error);
+~~~
+
+### Code kaise work karta hai?
+
+- **`randomUUID()`:** Har lock attempt ke liye unique owner token banata hai.
+- **`NX`:** Existing lock ko overwrite karke acquire hone se rokta hai.
+- **`PX: 10000`:** Lock ko 10-second TTL deta hai.
+- **Lua release script:** Token compare aur `DEL` ko atomically execute karti hai. Agar lock expire hokar kisi aur client ko mil chuka ho, toh old owner us lock ko delete nahi kar sakta.
+
+**Production caution:** Agar task TTL se zyada time leta hai, lock expire ho sakta hai jab original task abhi chal raha ho. Need ke hisaab se safe lease renewal, fencing tokens, idempotent processing, aur database-level safeguards consider karo. Distributed lock duplicate business operations ko apne aap impossible nahi banata.
+
+## 📊 Important Points
+
+| Feature | Explanation |
+|---|---|
+| Lock acquisition | `SET key token NX PX ttl` |
+| `NX` | Key absent ho tabhi set karta hai |
+| `PX` | Expiration milliseconds mein set karta hai |
+| Unique token | Lock ownership identify karta hai |
+| Safe release | Token check aur deletion atomically |
+| TTL | Abandoned lock ko indefinitely rehne se rokne mein help karta hai |
+| Main risk | TTL expire ho sakti hai jab old task abhi bhi running ho |
+| Production protection | Appropriate lease renewal, fencing tokens, idempotency, and data-store safeguards |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I implement a basic Redis distributed lock with `SET key unique-token NX PX ttl`. The token identifies the owner, NX prevents acquiring an existing lock, and PX adds an expiry. I release it with a Lua script that deletes the key only if its token still matches. For long-running or high-stakes work, I also consider lease renewal, fencing tokens, and idempotency."
+- **Hinglish Quick Memory:** "Redis lock ke liye `SET key token NX PX ttl` use karte hain. Unique token owner identify karta hai, NX existing lock ko overwrite nahi hone deta, aur PX TTL set karta hai. Release karte waqt token match karke hi delete karte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
