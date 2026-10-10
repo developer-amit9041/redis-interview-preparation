@@ -7552,6 +7552,123 @@ Is example mein transaction commit tab hota hai jab callback successfully comple
 - **English Pitch:** "Redis transactions use `MULTI` and `EXEC` to execute queued commands in isolation, but they do not automatically roll back commands that already succeeded if a later command fails at runtime. MongoDB transactions provide ACID semantics for related changes across multiple documents and collections, allowing the application to commit or abort the transaction."
 - **Hinglish Quick Memory:** "Redis transaction commands ko queue karke isolated execution deta hai, lekin runtime error par pehle ke successful commands automatic undo nahi hote. MongoDB transaction mein related document changes commit ya abort kar sakte hain. Agar order aur inventory dono changes ek saath successful hona zaroori hai, toh MongoDB transaction useful hai."
 
+# 🚀 Question 86: Can Redis Transactions Be Rolled Back?
+
+## 📝 Answer (English — Interview Definition)
+
+**No, Redis transactions do not support automatic rollback of commands that have already executed successfully.** Redis uses `MULTI` to queue commands and `EXEC` to execute them sequentially in isolation. If a command encounters a runtime error during execution, other commands in the transaction can still execute, and Redis does not undo earlier successful changes.
+
+However, if a key watched with `WATCH` changes before `EXEC`, Redis can abort the transaction before its queued commands execute. `DISCARD` can cancel queued commands before `EXEC`.
+
+## 🗣️ Answer in Hinglish
+
+Redis transactions mein SQL database jaisa automatic rollback nahi hota.
+
+Example, hum ek transaction mein do commands chalate hain:
+
+1. `SET` se user ka status update karna.
+2. `INCR` ya kisi doosri command se additional change karna.
+
+Agar pehli command successfully execute ho jaati hai aur doosri command runtime error de deti hai, toh Redis pehli command ka change automatically undo nahi karega.
+
+Redis mein teen baatein yaad rakho:
+
+- **`DISCARD`** — `EXEC` se pehle queued commands cancel karta hai.
+- **`WATCH` + `EXEC`** — agar watched key beech mein change ho jaaye, toh Redis transaction abort kar sakta hai.
+- **Runtime error during `EXEC`** — pehle successfully execute hui commands automatically rollback nahi hoti.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+          MULTI
+            |
+            v
+      Commands Queued
+            |
+            v
+           EXEC
+            |
+            v
+   Command 1 succeeds
+            |
+            v
+   Command 2 gets runtime error
+            |
+            v
+ Earlier successful changes
+ are NOT automatically undone
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### A. Runtime error hone par kya hota hai?
+
+Pehle ek key ko String value do:
+
+~~~bash
+SET user:101:status "old"
+~~~
+
+Ab transaction run karo:
+
+~~~bash
+MULTI
+SET user:101:status "active"
+LPUSH user:101:status "queued-value"
+EXEC
+~~~
+
+`LPUSH` error dega kyunki `user:101:status` ek String key hai, List nahi. `EXEC` ka response conceptually aisa hoga:
+
+~~~text
+1) OK
+2) (error) WRONGTYPE Operation against a key holding the wrong kind of value
+~~~
+
+Ab value check karo:
+
+~~~bash
+GET user:101:status
+~~~
+
+Output:
+
+~~~text
+"active"
+~~~
+
+**Kya hua?** `SET` successfully execute hua, lekin `LPUSH` fail hua. Redis ne successful `SET` ko automatically rollback nahi kiya.
+
+### B. `DISCARD` se queued commands cancel karna
+
+~~~bash
+MULTI
+SET user:102:status "active"
+INCR users:count
+DISCARD
+~~~
+
+Yahan `EXEC` call nahi hua, isliye queued commands execute nahi hongi.
+
+### C. `WATCH` se transaction abort karna
+
+Agar koi doosra client `WATCH` ki hui key ko modify kar deta hai, toh `EXEC` transaction ko abort kar sakta hai. Is case mein transaction ki queued commands execute nahi hoti. Yeh automatic rollback se alag behavior hai.
+
+## 📊 Important Points
+
+| Situation | Redis behavior |
+|---|---|
+| `EXEC` se pehle `DISCARD` | Queued commands cancel |
+| Watched key `EXEC` se pehle change ho | Transaction abort ho sakta hai |
+| Ek command runtime error de | Baaki valid queued commands phir bhi execute ho sakti hain |
+| Pehle command successfully execute hui | Uska change automatically undo nahi hota |
+| Full rollback required ho | Application logic ya aisa transaction-capable data store choose karo jo required rollback semantics provide kare |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis transactions do not support automatic rollback of commands that have already executed successfully. Runtime command errors do not undo earlier successful commands. `DISCARD` cancels queued commands before execution, while `WATCH` can cause `EXEC` to abort if a watched key changes."
+- **Hinglish Quick Memory:** "Redis transactions mein successful commands ka automatic rollback nahi hota. `DISCARD` commands ko execute hone se pehle cancel karta hai. `WATCH` ki hui key change ho jaaye toh `EXEC` abort ho sakta hai, lekin runtime error par pehle ke successful changes undo nahi hote."
+
 ---
 
 *More answers will be added in question order, using this format.*
