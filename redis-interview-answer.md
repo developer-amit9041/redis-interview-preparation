@@ -6595,6 +6595,152 @@ Yeh command naye messages ka wait karti hai. `$` ka matlab hai current end se aa
 - **English Pitch:** "Redis Streams is a Redis data structure that stores an ordered log of messages. Each entry has a unique ID and field-value pairs. It supports reading historical entries and consumer groups for distributed message processing, making it useful for event-driven applications and background tasks."
 - **Hinglish Quick Memory:** "Redis Streams messages ko entries ke form mein store karta hai. Har entry ki unique ID hoti hai. Hum `XADD` se message add, `XRANGE` se history read, aur consumer groups se messages process kar sakte hain. Pub/Sub se main difference hai ki Streams stored messages ko baad mein read karne deta hai, jab tak entries available hain."
 
+# 🚀 Question 78: Redis Pub/Sub vs Redis Streams?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Pub/Sub** is a real-time messaging mechanism that broadcasts messages to currently connected subscribers. It follows at-most-once delivery semantics and does not store messages for later replay.
+
+**Redis Streams** is a Redis data structure that stores an ordered sequence of entries. It supports reading message history, replaying retained entries, and using consumer groups to distribute message processing among consumers.
+
+The main difference is: **Pub/Sub is for live broadcasting, while Streams is for stored events and message processing.**
+
+## 🗣️ Answer in Hinglish
+
+Dono Redis ke messaging features hain, lekin inka use case different hai.
+
+**Redis Pub/Sub:**
+- Publisher channel par message send karta hai.
+- Redis us waqt active subscribers ko message broadcast karta hai.
+- Subscriber offline ho toh message miss kar sakta hai.
+- Purane messages ko replay karne ka feature nahi hai.
+
+**Redis Streams:**
+- Publisher stream mein message ko entry ke form mein store karta hai.
+- Consumer baad mein stored messages read kar sakta hai, jab tak entries available hain.
+- Consumer groups ke through multiple consumers milkar messages process kar sakte hain.
+- Consumer-group workflow mein acknowledgements aur pending messages track kiye ja sakte hain.
+
+### Real-World Example
+
+E-commerce application mein:
+
+- **Redis Pub/Sub:** Admin dashboard par instantly show karna ki naya order aaya hai.
+- **Redis Streams:** `order_created` events store karna, taaki background worker baad mein process kar sake ya retained events ko dobara read kar sake.
+
+## 🏗️ Architecture Diagram
+
+### Redis Pub/Sub — Live Broadcast
+
+~~~text
+Publisher
+    |
+    | PUBLISH notifications
+    v
+Redis Channel
+    |
+    +------> Active Subscriber A
+    |
+    +------> Active Subscriber B
+
+Offline subscriber may miss the message.
+~~~
+
+### Redis Streams — Stored Messages
+
+~~~text
+Producer
+    |
+    | XADD order_stream
+    v
+Redis Stream (stored entries)
+    |
+    | XREAD / XREADGROUP
+    v
+Consumer(s)
+    |
+    | XACK (consumer-group workflow)
+    v
+Entry acknowledged
+~~~
+
+## 💻 Practical Redis CLI Examples
+
+### A. Redis Pub/Sub
+
+**Terminal 1 — Subscriber**
+
+~~~bash
+redis-cli SUBSCRIBE order_events
+~~~
+
+**Terminal 2 — Publisher**
+
+~~~bash
+redis-cli PUBLISH order_events "Order 101 created"
+~~~
+
+Message tab receive hoga jab subscriber active aur subscribed hai. Agar us waqt subscriber offline hai, toh woh message automatically baad mein nahi milega.
+
+### B. Redis Streams
+
+**Step 1 — Store an event**
+
+~~~bash
+redis-cli XADD order_stream "*" event "order_created" orderId "101"
+~~~
+
+`XADD` ek entry stream mein add karta hai aur generated entry ID return karta hai.
+
+**Step 2 — Read stored events**
+
+~~~bash
+redis-cli XRANGE order_stream - +
+~~~
+
+Yeh stream mein retained entries read karta hai.
+
+**Step 3 — Create a consumer group**
+
+~~~bash
+redis-cli XGROUP CREATE order_stream order_workers 0 MKSTREAM
+~~~
+
+**Step 4 — Read through the consumer group**
+
+~~~bash
+redis-cli XREADGROUP GROUP order_workers worker1 COUNT 10 STREAMS order_stream >
+~~~
+
+**Step 5 — Acknowledge a processed entry**
+
+~~~bash
+redis-cli XACK order_stream order_workers <entry-id>
+~~~
+
+`<entry-id>` ko us actual ID se replace karo jo `XREADGROUP` ke output mein mili ho. Consumer group mein acknowledgement batata hai ki consumer ne entry process kar li hai; application ko processing aur duplicate-handling logic bhi sahi implement karna chahiye.
+
+## 📊 Comparison Table
+
+| Feature | Redis Pub/Sub | Redis Streams |
+|---|---|---|
+| Main purpose | Real-time broadcasting | Stored event processing |
+| Message storage | No | Yes, while entries remain in the stream |
+| Offline consumer | Message miss kar sakta hai | Stored entries baad mein read kar sakta hai |
+| Message history | No | Yes |
+| Replay | No | Yes, retained entries ko dobara read kar sakte hain |
+| Consumer groups | No | Yes |
+| Acknowledgements | Queue-style acknowledgements nahi | Consumer groups mein `XACK` available hai |
+| Message tracking | Subscriber delivery tracking limited | Pending entries track kar sakte hain in consumer-group workflows |
+| Common use case | Live notifications, dashboard updates | Background jobs, event processing, retained history |
+
+**Important:** Redis Streams mein entries kitni der tak available rahengi, yeh trimming/deletion aur Redis persistence configuration par depend karta hai. Streams ka use karna apne aap permanent storage guarantee nahi karta.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Pub/Sub is suitable for real-time broadcasting when message history is not required. Redis Streams stores ordered entries and supports reading historical messages, replaying retained entries, and consumer groups with acknowledgements. I would choose Pub/Sub for lightweight live updates and Streams when consumers need stored events and more controlled processing."
+- **Hinglish Quick Memory:** "Redis Pub/Sub active subscribers ko live message broadcast karta hai, lekin message store nahi karta. Redis Streams messages ko entries ke form mein store karta hai. Ismein hum history read, messages replay aur consumer groups ke through processing kar sakte hain. Simple live updates ke liye Pub/Sub, aur stored events/background processing ke liye Streams use karenge."
+
 ---
 
 *More answers will be added in question order, using this format.*
