@@ -3186,6 +3186,78 @@ const topTenWinners = await redis.zRange("leaderboard", 0, 9, { REV: true });
 - **English Pitch:** "ZADD adds unique members with numerical scores to a Redis Sorted Set, while ZRANGE retrieves members by rank, ascending by score by default. They are commonly used for leaderboards, ranking views, and priority queues."
 - **Hinglish Quick Memory:** ZADD unique item ko score ke sath set mein add ya update karta hai. ZRANGE scores ke order mein results return karta hai; REV: true dene par highest score pehle aata hai.
 
+# 🚀 Question 35: What Is SCAN in Redis, and Why Is It Preferred Over KEYS?
+
+## 📝 Answer (English — Interview Definition)
+
+SCAN is a cursor-based, incremental iteration command used to inspect keys in the Redis keyspace without requiring one command to return the entire matching key list.
+
+Unlike KEYS, which scans the keyspace in a single operation and may block Redis while doing so, SCAN returns a batch of results along with a cursor that can be used to continue iteration. For large production instances, SCAN is generally preferred for maintenance and key-discovery tasks because its incremental approach helps limit the impact of each individual call on application traffic.
+
+SCAN is not a consistent snapshot: while the keyspace changes, results may include duplicates, and keys added or removed during iteration may or may not be returned.
+
+## 🗣️ Answer in Hinglish
+
+Maan lijiye production Redis mein 10 lakh active keys hain aur aapko product cache ki keys inspect karni hain:
+
+- **KEYS pattern:** Yeh poore keyspace ko ek command mein scan karta hai. Large database mein is operation se Redis main thread block ho sakta hai aur application latency badh sakti hai.
+- **SCAN cursor:** Yeh keys ko incremental batches mein inspect karta hai aur har response ke sath cursor deta hai, jisse agla batch continue kiya ja sake.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // COUNT is a hint, not a guaranteed batch size.
+  for await (const targetKey of redis.scanIterator({
+    MATCH: "product:*",
+    COUNT: 100
+  })) {
+    console.log("Discovered key:", targetKey);
+  }
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+**⚠️ Architectural Edge Case:** SCAN iteration is not a consistent snapshot. Depending on keyspace changes, duplicate results may be returned. Make maintenance operations idempotent or track already-processed keys when duplicate processing would be harmful.
+
+## 🔄 Real-World MERN Usage Pattern (Cache Maintenance)
+
+MERN backend maintenance jobs mein auth token keys ko incrementally inspect karne ke liye SCAN use kiya ja sakta hai:
+
+~~~javascript
+// Token keys ko batches mein inspect karna
+for await (const staleKey of redis.scanIterator({
+  MATCH: "auth:token:*",
+  COUNT: 200
+})) {
+  console.log("Inspected token key:", staleKey);
+}
+~~~
+
+## 📊 Core Architectural Comparison Matrix
+
+| Operational Attribute | KEYS pattern | SCAN cursor |
+|---|---|---|
+| Retrieval Strategy | Returns all matching keys in one command. | Iterates through keys across multiple cursor calls. |
+| Blocking Risk | Can block Redis on large keyspaces. | Incremental calls generally reduce the impact of each scan step. |
+| Cursor | Not available. | Uses a cursor to continue the iteration. |
+| Production Use | Avoid for routine queries on large live databases. | Preferred for incremental maintenance and keyspace sweeps. |
+| Result Behavior | Returns a full matching list for that call. | Not a snapshot; duplicate results are possible while keys change. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "SCAN is a cursor-based command that incrementally iterates over Redis keys. It is generally preferred to KEYS for maintenance on large databases because each call processes a portion of the keyspace, though results are not a consistent snapshot and may include duplicates."
+- **Hinglish Quick Memory:** KEYS large database par chalane se Redis main thread ko kaafi der block kar sakta hai. SCAN cursor ke through batches mein keys read karta hai. SCAN ke results duplicate ho sakte hain, isliye processing idempotent rakhna useful hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
