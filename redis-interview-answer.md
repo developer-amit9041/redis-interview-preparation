@@ -7166,6 +7166,130 @@ Matlab queued `SET` aur `INCR` execute hi nahi hue. Agar keys pehle se exist kar
 - **English Pitch:** "`DISCARD` cancels a Redis transaction before execution. It removes the queued commands and exits the transaction state, so those commands are not executed."
 - **Hinglish Quick Memory:** "`DISCARD` transaction mein queued commands ko cancel karta hai. Iske baad woh commands execute nahi hote aur transaction mode exit ho jata hai."
 
+# 🚀 Question 83: What Is WATCH?
+
+## 📝 Answer (English — Interview Definition)
+
+**`WATCH` is a Redis command used for optimistic concurrency control.** It monitors one or more keys for changes. If a watched key is modified before the transaction executes with `EXEC`, Redis aborts that transaction, preventing it from proceeding with potentially stale data.
+
+## 🗣️ Answer in Hinglish
+
+`WATCH` ka use tab hota hai jab hum check karna chahte hain ki transaction execute hone se pehle kisi key ki value kisi doosre client ne change toh nahi kar di.
+
+Maan lo account balance ₹1,000 hai. Do clients same balance read karte hain. Agar pehla client balance update kar de, toh doosre client ke paas purani value ho sakti hai.
+
+`WATCH` is tarah ke concurrent update ko detect karne mein help karta hai:
+
+1. `WATCH` key ko monitor karta hai.
+2. Application current value read karti hai.
+3. `MULTI` se transaction start hota hai aur commands queue hoti hain.
+4. `EXEC` se pehle watched key kisi doosre client ne modify kar di, toh transaction abort ho sakta hai.
+5. Application latest value read karke operation dobara try kar sakti hai.
+
+**Important:** `WATCH` khud transaction start nahi karta. Yeh `MULTI` se pehle optimistic concurrency check set karta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+        Client A
+           |
+           | WATCH account:101:balance
+           | Read balance = 1000
+           v
+        MULTI
+           |
+           | Queue update based on balance
+           v
+          EXEC
+           ^
+           |
+  Check watched key for changes
+           |
+     +-----+------+
+     |            |
+ No change     Key changed
+     |            |
+     v            v
+ Execute       Abort transaction
+ transaction   and retry with fresh data
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### A. Basic WATCH example
+
+**Terminal 1 — Client A**
+
+~~~bash
+WATCH account:101:balance
+GET account:101:balance
+~~~
+
+Maan lo balance `1000` hai. Ab transaction queue karo:
+
+~~~bash
+MULTI
+DECRBY account:101:balance 200
+EXEC
+~~~
+
+Agar `WATCH` karne ke baad aur `EXEC` se pehle kisi doosre client ne `account:101:balance` change nahi kiya, toh transaction execute ho sakta hai aur balance `800` ho jayega.
+
+### B. Agar doosra client key change kar de
+
+**Terminal 1 — Client A**
+
+~~~bash
+WATCH account:101:balance
+GET account:101:balance
+~~~
+
+Maan lo Client A ne `1000` read kiya.
+
+**Terminal 2 — Client B**
+
+~~~bash
+SET account:101:balance 900
+~~~
+
+Ab Client A transaction execute karta hai:
+
+~~~bash
+MULTI
+DECRBY account:101:balance 200
+EXEC
+~~~
+
+Kyuki watched key `EXEC` se pehle change hui thi, Redis transaction abort kar dega. `EXEC` null reply return karega; queued `DECRBY` execute nahi hoga.
+
+**Important:** Real money-transfer systems mein sirf ye simplified commands use karna enough nahi hai. Balance validation, retries aur business rules ko carefully implement karna hota hai.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Purpose | Concurrent modifications detect karna |
+| Transaction start karta hai? | Nahi, `MULTI` karta hai |
+| Kab use karte hain? | Usually `MULTI` se pehle |
+| Key change ho jaye toh? | `EXEC` transaction abort kar sakta hai |
+| Concurrency strategy | Optimistic concurrency control |
+| Application ko kya karna chahiye? | Latest data read karke operation retry karna, if appropriate |
+
+### DISCARD vs WATCH
+
+| Feature | `DISCARD` | `WATCH` |
+|---|---|---|
+| Main purpose | Queued commands cancel karna | Watched keys ke changes detect karna |
+| Typical position | `MULTI` ke baad | `MULTI` se pehle |
+| Transaction execute hota hai? | Nahi | Key change na ho toh ho sakta hai |
+| Key modified hone par effect | Isse related nahi | `EXEC` abort ho sakta hai |
+| Category | Transaction cancellation | Optimistic concurrency control |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`WATCH` provides optimistic concurrency control in Redis. It monitors one or more keys, and if any watched key changes before `EXEC`, Redis aborts the transaction. The application can then read the latest data and retry the operation if appropriate."
+- **Hinglish Quick Memory:** "`WATCH` key ko monitor karta hai. Agar `WATCH` aur `EXEC` ke beech key change ho jaaye, toh Redis transaction abort kar sakta hai. Application fresh value read karke operation dobara try kar sakti hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
