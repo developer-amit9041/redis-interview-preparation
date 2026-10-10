@@ -8899,6 +8899,81 @@ Hash tags ka use thoughtfully karna chahiye. Agar bahut saari keys ek hi hash ta
 - **English Pitch:** "Hash slots are the logical partitions used by Redis Cluster to distribute keys. Redis calculates a key's slot using CRC16 modulo 16,384, and each primary node owns a subset of slots. Hash tags let developers map related keys to the same slot for supported multi-key operations."
 - **Hinglish Quick Memory:** "Hash slots Redis Cluster ke logical buckets hain. Total 16,384 slots hote hain. Redis key ka slot calculate karta hai aur us slot ke owner primary par key rakhta hai. `{101}` jaise hash tags related keys ko same slot mein rakhne mein help karte hain."
 
+# 🚀 Question 99: How Many Hash Slots Does Redis Cluster Have?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Cluster has 16,384 hash slots**, numbered from `0` to `16383`. Redis calculates a key's hash slot using `CRC16(key) mod 16384`. The slots are distributed across primary nodes, allowing Redis Cluster to partition and scale data across multiple nodes.
+
+## 🗣️ Answer in Hinglish
+
+Redis Cluster mein total **16,384 hash slots** hote hain.
+
+Jab hum Redis Cluster mein koi key store karte hain, Redis us key ka hash calculate karke decide karta hai ki key kis hash slot mein jayegi. Phir woh slot jis primary node ko assigned hai, key us node par store hoti hai.
+
+Example:
+
+- `user:101` ki ek hash slot hogi.
+- `product:500` ki alag hash slot ho sakti hai.
+- Cluster ke primary nodes in slots ko aapas mein divide karte hain.
+
+**Important:** 16,384 slots ka matlab 16,384 servers nahi hai. Ek primary node bahut saare hash slots handle kar sakta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+               Redis Cluster
+          Total: 16,384 Hash Slots
+             Slots: 0–16383
+                    |
+          +---------+---------+
+          |         |         |
+          v         v         v
+       Primary A  Primary B  Primary C
+       Slot range Slot range Slot range
+       assigned   assigned   assigned
+          |         |         |
+          v         v         v
+        Keys      Keys      Keys
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### A. Check a key's hash slot
+
+~~~bash
+redis-cli -c CLUSTER KEYSLOT user:101
+~~~
+
+Redis ek slot number return karega, jo `0` se `16383` ke beech hoga. Exact number key par depend karega.
+
+### B. Use a hash tag to keep related keys in the same slot
+
+~~~bash
+redis-cli -c CLUSTER KEYSLOT '{user:101}:profile'
+redis-cli -c CLUSTER KEYSLOT '{user:101}:orders'
+~~~
+
+Dono keys ka hash slot same hoga, kyunki Redis hash tag ke andar ke text—`user:101`—ko hash karta hai.
+
+Ye technique useful hai jab Redis Cluster mein multi-key operation ke liye related keys ka same slot mein hona zaroori ho.
+
+## 📊 Important Points
+
+| Point | Explanation |
+|---|---|
+| Total hash slots | `16,384` |
+| Slot numbering | `0–16383` |
+| Hash calculation | `CRC16(key) mod 16384` |
+| Slot assignment | Cluster ke primary nodes ko slots assign hote hain |
+| Hash tag | `{...}` ke andar ke text se slot calculate hota hai |
+| Purpose | Data partitioning aur horizontal scaling |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Cluster has 16,384 hash slots, numbered from 0 to 16,383. Redis uses CRC16 modulo 16,384 to map keys to slots, and primary nodes own assigned slots. Hash tags can force related keys into the same slot."
+- **Hinglish Quick Memory:** "Redis Cluster mein 16,384 hash slots hote hain. Redis key ka hash calculate karke slot decide karta hai, aur primary nodes slots ko divide karte hain. `{user:101}` jaisa hash tag related keys ko same slot mein rakh sakta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
