@@ -12831,6 +12831,175 @@ Yeh scan karke har data type ki large keys identify karne mein help karta hai. P
 - **English Pitch:** "I monitor Redis memory using `INFO memory`, `MEMORY STATS`, and `MEMORY USAGE`. I track current and peak memory, RSS, the configured `maxmemory` limit, and eviction metrics. In production, I use dashboards and alerts to detect memory growth, then investigate large keys, expiration settings, and eviction policies."
 - **Hinglish Quick Memory:** "Redis mein `INFO memory` se overall memory check karte hain, `MEMORY STATS` se detailed breakdown, aur `MEMORY USAGE key` se individual key ka approximate usage. Production mein `maxmemory`, memory growth, evictions aur failed writes monitor karte hain. Large keys aur TTL settings bhi investigate karte hain."
 
+# 🚀 Question 128: How Do You Troubleshoot Slow Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+When troubleshooting slow Redis, I first identify whether the latency originates from Redis command execution, network communication, client-side processing, or server resource constraints. I use tools such as `SLOWLOG GET`, `INFO commandstats`, `INFO memory`, `INFO clients`, and `redis-cli --latency` to collect evidence.
+
+Based on the metrics, I investigate expensive commands, large keys, CPU or memory pressure, persistence activity, network latency, and connection-management issues. I then optimize the identified bottleneck and measure latency again to verify the improvement.
+
+## 🗣️ Answer in Hinglish
+
+Agar Redis slow ho raha hai, toh directly configuration change nahi karni chahiye. Pehle identify karna hai ki problem exactly kahan hai.
+
+1. **Latency check:** Redis tak request jaane aur response aane mein kitna time lag raha hai?
+2. **Slow commands:** Kya koi command bahut zyada time le rahi hai?
+3. **Resource usage:** CPU, memory, connections ya persistence mein koi bottleneck hai?
+4. **Application/network:** Kya Node.js connection pool, network ya large response ki wajah se delay ho raha hai?
+5. **Fix and verify:** Root cause ko optimize karke latency dobara measure karta hoon.
+
+**Example:** MERN application mein products API slow ho rahi hai. Zaroori nahi ki MongoDB slow ho. Ho sakta hai Redis par expensive command chal rahi ho, Redis response bahut large ho, ya application Redis connection ka wait kar rahi ho.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+          Node.js / MERN API
+                  |
+                  v
+           Redis Request
+                  |
+                  v
+         Measure Response Time
+                  |
+                  v
+          Is Redis Slow?
+                  |
+        +---------+---------+
+        |                   |
+       Yes                  No
+        |                   |
+        v                   v
+ Check SLOWLOG,         Investigate Node.js,
+ INFO, latency          MongoDB or other layers
+        |
+        v
+ Find Root Cause
+        |
+        v
+ Optimize Command / Resources /
+ Network / Connection Management
+        |
+        v
+ Measure Again and Verify
+~~~
+
+## 💻 Practical Redis CLI Troubleshooting
+
+### Step 1: Measure Redis latency
+
+~~~bash
+redis-cli --latency
+~~~
+
+Yeh client aur Redis ke beech measured request-response latency observe karne mein help karta hai.
+
+Recent latency samples ko history ke saath dekhne ke liye:
+
+~~~bash
+redis-cli --latency-history
+~~~
+
+Agar latency high hai, toh cause assume mat karo. Network, Redis processing aur client-side delays ko alag-alag investigate karo.
+
+### Step 2: Check slow commands
+
+~~~bash
+redis-cli SLOWLOG GET 10
+~~~
+
+Yeh Redis Slow Log ki latest entries dikhata hai.
+
+Possible expensive commands ke examples:
+
+~~~redis
+KEYS *
+HGETALL very_large_hash
+SMEMBERS very_large_set
+~~~
+
+Large datasets par in commands ka use expensive ho sakta hai. `KEYS *` production traffic ke dauran poore keyspace ko scan karke server ko block kar sakta hai.
+
+**Important:** Slow Log command execution time record karta hai; client tak response pahunchne mein laga network time ismein include nahi hota. Slow Log empty hone ka matlab yeh nahi ki overall Redis request fast hai.
+
+### Step 3: Check command statistics
+
+~~~bash
+redis-cli INFO commandstats
+~~~
+
+Yahan command-level metrics milte hain, jaise calls aur total/average execution time.
+
+| Observation | Possible action |
+|---|---|
+| Specific command ka average execution time high hai | Us command aur data size ko investigate karo |
+| Koi command bahut zyada calls le rahi hai | Application request pattern check karo |
+| Slow Log clear hai, par API slow hai | Network, client wait time aur response size check karo |
+
+Average time ko carefully interpret karo: rare but extremely slow requests average metric mein hide ho sakti hain.
+
+### Step 4: Check CPU, memory and connected clients
+
+~~~bash
+redis-cli INFO cpu
+redis-cli INFO memory
+redis-cli INFO clients
+redis-cli INFO stats
+redis-cli INFO persistence
+~~~
+
+| Command | Kya check karna hai |
+|---|---|
+| `INFO cpu` | Redis process ki CPU usage |
+| `INFO memory` | Memory consumption, peak aur fragmentation |
+| `INFO clients` | Connected aur blocked clients |
+| `INFO stats` | Operational counters, network bytes aur evictions jaise metrics |
+| `INFO persistence` | RDB/AOF activity aur background persistence state |
+
+Agar Redis memory pressure mein hai, host swapping kar raha hai, bahut saare clients connected hain, ya persistence operation latency affect kar rahi hai, toh us evidence ko application latency ke saath correlate karo.
+
+### Step 5: Check latency events
+
+~~~bash
+redis-cli LATENCY DOCTOR
+~~~
+
+Yeh Redis latency monitoring ke recorded events ka analysis deta hai, provided latency monitoring enabled ho aur relevant events record hue hon. Agar monitoring disabled hai, toh server configuration aur operational policy check karo.
+
+### Step 6: Optimize based on the actual cause
+
+| Root cause | Possible solution |
+|---|---|
+| Expensive commands | Better data structures, pagination, bounded operations |
+| `KEYS *` blocking work | Suitable cases mein incremental `SCAN` use karo |
+| Huge values or collections | Data ko smaller, manageable parts mein organize karo |
+| Too many network round trips | Suitable workflows mein pipelining use karo |
+| CPU saturation | Heavy commands/scripts aur traffic pattern investigate karo; capacity assess karo |
+| Memory pressure | `maxmemory`, eviction policy, key sizes aur host memory check karo |
+| Client connection delays | Node.js connection reuse, pool aur timeout settings check karo |
+| Network or large replies | RTT, bandwidth aur response payload size measure karo |
+| Persistence-related latency | RDB/AOF activity aur configuration ko measured workload ke against review karo |
+
+**Production note:** `SCAN` incremental iteration deta hai, lekin iska matlab zero overhead ya perfectly consistent snapshot nahi hai. Pipelining round trips reduce karta hai, par inherently expensive server-side command ko cheap nahi banata.
+
+## 📊 Troubleshooting Checklist
+
+| Check | Question to ask |
+|---|---|
+| Latency | Kya Redis request-response latency actually high hai? |
+| Slow Log | Kya koi expensive command execute ho rahi hai? |
+| CPU | Kya CPU saturation ya long-running script hai? |
+| Memory | Kya memory pressure, swapping ya eviction activity hai? |
+| Connections | Kya clients blocked hain ya connection wait time badh raha hai? |
+| Persistence | Kya background save ya AOF activity latency ke saath correlate karti hai? |
+| Network | Kya network RTT ya large response payload delay create kar raha hai? |
+| Application | Kya Node.js Redis connection reuse kar raha hai, ya har request par naya connection ban raha hai? |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "To troubleshoot slow Redis, I measure latency first and then inspect `SLOWLOG GET`, `INFO commandstats`, `INFO memory`, `INFO clients`, and persistence metrics. I investigate expensive commands, large keys, CPU and memory pressure, network latency, and application connection handling. After fixing the identified bottleneck, I measure latency again to confirm the improvement."
+- **Hinglish Quick Memory:** "Slow Redis troubleshoot karne ke liye pehle latency measure karta hoon. Phir `SLOWLOG`, `INFO commandstats`, memory, clients aur persistence metrics check karta hoon. Root cause expensive command, large key, CPU/RAM pressure, network ya Node.js connection handling ho sakta hai. Fix ke baad dobara latency measure karke verify karta hoon."
+
 ---
 
 *More answers will be added in question order, using this format.*
