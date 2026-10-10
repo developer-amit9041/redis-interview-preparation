@@ -3095,6 +3095,97 @@ console.log("Total Distinct Likes:", distinctCount); // Output: 2
 - **English Pitch:** "SADD inserts distinct string members into a Redis Set, ignoring duplicates, while SMEMBERS returns the complete unordered collection. These commands provide useful primitives for membership validation, tagging indexes, and unique interaction tracking."
 - **Hinglish Quick Memory:** SADD command set ke andar unique items add karta hai; duplicate item dobara add nahi hota. SMEMBERS us set ke saare members return karta hai, lekin order fixed nahi hota. Unique user interactions ya permissions tracking ke liye yeh useful commands hain.
 
+# 🚀 Question 34: What Are ZADD and ZRANGE in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+ZADD and ZRANGE are core Redis commands designed for managing Sorted Sets (ZSets), where unique members are mapped to numerical scores.
+
+- **ZADD:** Inserts one or more members alongside their numerical scores. If a member already exists, its score is updated.
+- **ZRANGE:** Retrieves members by sorted-set rank range. By default, results are in ascending score order; members with equal scores are ordered lexicographically.
+
+ZADD insertions and score updates are O(log N) per member. ZRANGE has complexity O(log N + M), where M is the number of returned members. These commands are commonly used for real-time leaderboards, priority scheduling, and ranking views.
+
+## 🗣️ Answer in Hinglish
+
+ZADD aur ZRANGE dono hi Redis Sorted Set (ZSet) ke primary operations hain, jahan har unique value ke sath ek numerical Score linked hota hai:
+
+- **ZADD:** Set ke andar new members aur unka numerical score add karta hai. Agar player pehle se maujood hai, toh uska score update kar deta hai.
+- **ZRANGE:** Score ke basis par data ko lowest score se highest score ke order mein return karta hai. By default, output ascending order mein hota hai.
+
+~~~text
+[ ZADD Input ]
+(Score: 100, Amit), (Score: 300, Priya), (Score: 200, Rahul)
+                  |
+                  v
+[ Sorted Set: leaderboard ]
+Member: "Amit"  -> Score: 100
+Member: "Rahul" -> Score: 200
+Member: "Priya" -> Score: 300
+                  |
+                  v
+[ ZRANGE leaderboard 0 -1 ]
+"Amit", "Rahul", "Priya"
+~~~
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. ZADD — Players ko scores ke sath add karna
+  await redis.zAdd("leaderboard", [
+    { score: 100, value: "Amit" },
+    { score: 200, value: "Rahul" },
+    { score: 300, value: "Priya" }
+  ]);
+
+  // 2. ZRANGE — Ascending sequence par elements load karna
+  const rankingList = await redis.zRange("leaderboard", 0, -1);
+  console.log("Ascending Order Ranks:", rankingList);
+
+  // 3. ZRANGE with REV — Highest score first
+  const topPerformers = await redis.zRange("leaderboard", 0, -1, { REV: true });
+  console.log("High-to-Low Leaderboard:", topPerformers);
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Live Gaming Tournament Dashboard)
+
+MERN application mein score update hone par ZADD same member ka score update kar deta hai:
+
+~~~javascript
+// Player ka score update karke 950 points par set karna
+await redis.zAdd("leaderboard", { score: 950, value: "player101" });
+
+// API endpoint ke liye top 10 players fetch karna
+const topTenWinners = await redis.zRange("leaderboard", 0, 9, { REV: true });
+~~~
+
+## 📋 Sorted Set Commands Overview Table
+
+| Command | Operational Target | Time Complexity | Production Use Case |
+|---|---|---|---|
+| ZADD | Member aur score mapping create/update karna. | O(log N) per member | Real-time scoreboards, priority task pipelines. |
+| ZRANGE | Rank range ko ascending order mein read karna by default. | O(log N + M) | Fetching leaderboard result segments. |
+| ZSCORE | Single member ka score read karna. | O(1) | Fetching a player's current score. |
+| ZREM | Specific member remove karna. | O(log N) per member | Removing an account from a leaderboard. |
+| ZREVRANK | Descending score order mein rank check karna. | O(log N) | Returning a player's current rank. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "ZADD adds unique members with numerical scores to a Redis Sorted Set, while ZRANGE retrieves members by rank, ascending by score by default. They are commonly used for leaderboards, ranking views, and priority queues."
+- **Hinglish Quick Memory:** ZADD unique item ko score ke sath set mein add ya update karta hai. ZRANGE scores ke order mein results return karta hai; REV: true dene par highest score pehle aata hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
