@@ -3880,6 +3880,70 @@ app.get("/products/:id", async (req, res) => {
 - **English Pitch:** "Read-Through caching delegates cache-miss database queries to a cache management service. Controllers request data from the cache wrapper, which checks Redis, loads missing records from the database, populates the cache, and returns the result."
 - **Hinglish Quick Memory:** Read-Through model mein controller sirf `readThroughProductCache()` ko call karta hai. Cache check karna, miss hone par MongoDB se data uthana aur Redis mein save karna wrapper function handle karta hai.
 
+# 🚀 Question 43: What Is Cache Hit?
+
+## 📝 Answer (English — Interview Definition)
+
+A Cache Hit occurs when the application searches for a specific piece of data in the high-speed caching tier, such as Redis, and successfully finds it.
+
+When a cache hit takes place, the application can bypass the primary persistent database and return the cached payload directly. Maximizing the Cache Hit Ratio is a common system-design goal because it can reduce response latency, lower database resource consumption, and help the application handle more traffic.
+
+## 🗣️ Answer in Hinglish
+
+Cache Hit ka seedha matlab hai ki jo data backend application ko chahiye, woh pehle se Redis RAM memory mein available hai.
+
+Maan lo aapke MERN stack project mein hazaron log ek popular product list dekh rahe hain:
+
+1. React frontend `/products` API ko request karegi.
+2. Node.js backend controller `redis.get()` chalakar data check karega.
+3. Data cache mein available hai, isliye MongoDB query chalane ki zaroorat nahi padti.
+4. Response Redis se return ho jata hai.
+
+~~~text
+[ Client Request ] ──► [ Node.js Backend ]
+                                |
+                                v
+                       [ Redis Cache RAM ]
+                         DATA FOUND!
+                                |
+                                v
+                     [ Fast Response Returned ]
+
+                       [ MongoDB Database ]
+                          Bypassed on hit
+~~~
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+// Controller code handling a Cache Hit
+const cacheKey = "products:all";
+const cachedProducts = await redis.get(cacheKey);
+
+if (cachedProducts) {
+  console.log("[CACHE]: Cache Hit!");
+
+  return res.json({
+    source: "Redis In-Memory Tier",
+    products: JSON.parse(cachedProducts)
+  });
+}
+~~~
+
+## 📋 Performance Matrix
+
+| Operational Metric | Cache Hit Performance |
+|---|---|
+| Data availability | Requested data is present in Redis. |
+| Primary database execution | Database read can be bypassed for this request. |
+| Response time | Often faster than querying the primary database; exact latency depends on environment and payload size. |
+| Database compute load | Reduced when frequently requested keys are served from cache. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Cache Hit occurs when requested data is found in the cache, allowing the application to return it without querying the primary database. A high cache hit ratio can reduce response latency and database load."
+- **Hinglish Quick Memory:** Cache Hit ka matlab hai memory check pass ho jana. Jab client data mange aur woh Redis se mil jaye, toh MongoDB par query nahi chalani padti. Isse repeated requests fast ho sakti hain aur database ka workload kam hota hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
