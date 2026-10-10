@@ -5,21 +5,20 @@ Redis interview question bank for backend and MERN Stack developers, organized b
 ## 🟢 Level 1 — Must Know Basics
 
 1. What is Redis?
-
 2. Why is Redis so fast?
 3. Is Redis a database or a cache?
 4. What are the main use cases of Redis?
-5. How does Redis store data?
-6. What are Redis data types?
+5. What are the different data types in Redis?
+6. What is the difference between Redis and MongoDB?
 7. What is a Redis key-value pair?
 8. What is TTL in Redis?
 9. What is key expiration in Redis?
 10. What are the most commonly used Redis commands?
-11. Redis vs MongoDB — what's the difference?
-12. Redis vs Memcached — what's the difference?
-13. When should you use Redis?
-14. When should you NOT use Redis?
-15. Can Redis be used as a primary database?
+11. Redis vs Memcached — what's the difference?
+12. When should you use Redis?
+13. When should you NOT use Redis?
+14. Can Redis be used as a primary database?
+15. How does Redis store data?
 
 ## 🟡 Level 2 — Data Types & Commands
 
