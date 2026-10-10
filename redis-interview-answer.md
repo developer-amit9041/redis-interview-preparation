@@ -11184,6 +11184,158 @@ main().catch(console.error);
 - **English Pitch:** "I implement a basic Redis distributed lock with `SET key unique-token NX PX ttl`. The token identifies the owner, NX prevents acquiring an existing lock, and PX adds an expiry. I release it with a Lua script that deletes the key only if its token still matches. For long-running or high-stakes work, I also consider lease renewal, fencing tokens, and idempotency."
 - **Hinglish Quick Memory:** "Redis lock ke liye `SET key token NX PX ttl` use karte hain. Unique token owner identify karta hai, NX existing lock ko overwrite nahi hone deta, aur PX TTL set karta hai. Release karte waqt token match karke hi delete karte hain."
 
+# 🚀 Question 115: How Do You Use Redis with WebSocket/Socket.IO?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis is commonly used with Socket.IO to **enable real-time communication across multiple Node.js server instances**. The Socket.IO Redis adapter uses Redis Pub/Sub to forward broadcast packets between servers, allowing clients connected to different instances to receive the same room or broadcast events.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo aapki MERN application mein real-time chat feature hai aur traffic badhne ke kaaran aapne do Node.js servers chala diye.
+
+- User A, **Server 1** se connected hai.
+- User B, **Server 2** se connected hai.
+- User A message send karta hai.
+
+Problem: Server 1 ko apne connected clients ka pata hai, lekin use apne aap Server 2 par connected clients tak message pahunchane ka mechanism nahi milta.
+
+**Solution: Redis adapter use karenge.**
+
+1. Dono Socket.IO servers Redis se connect honge.
+2. Server 1 room mein message broadcast karega.
+3. Redis Pub/Sub broadcast packet ko doosre Socket.IO server tak forward karega.
+4. Server 2 apne connected room members ko message deliver karega.
+
+Iske liye `@socket.io/redis-adapter` package use hota hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+         User A                       User B
+            |                            |
+            v                            v
+     Node.js Server 1             Node.js Server 2
+       Socket.IO                    Socket.IO
+            |                            |
+            +-------------+--------------+
+                          |
+                          v
+                  Redis Pub/Sub
+               (Redis Adapter)
+                          |
+              Broadcast packets forward
+                          |
+                          v
+               Message reaches clients
+                on both server instances
+~~~
+
+**Yaad rakho:** Socket.IO client connections manage karta hai. Redis adapter alag-alag Socket.IO servers ke beech broadcasts coordinate karta hai.
+
+## 💻 Practical Node.js + Socket.IO Example
+
+### Step 1: Install packages
+
+~~~bash
+npm install express socket.io redis @socket.io/redis-adapter
+~~~
+
+### Step 2: Configure the Socket.IO server
+
+Example uses ES modules. Set `"type": "module"` in `package.json`, or adapt the imports to your project setup.
+
+~~~javascript
+import express from "express";
+import { createServer } from "node:http";
+import { Server } from "socket.io";
+import { createClient } from "redis";
+import { createAdapter } from "@socket.io/redis-adapter";
+
+const app = express();
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:3000",
+  },
+});
+
+const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
+const pubClient = createClient({ url: redisUrl });
+const subClient = pubClient.duplicate();
+
+pubClient.on("error", (err) => console.error("Redis publisher error:", err));
+subClient.on("error", (err) => console.error("Redis subscriber error:", err));
+
+async function startServer() {
+  await Promise.all([pubClient.connect(), subClient.connect()]);
+
+  // Share Socket.IO broadcasts between Node.js instances.
+  io.adapter(createAdapter(pubClient, subClient));
+
+  io.on("connection", (socket) => {
+    console.log("Client connected:", socket.id);
+
+    socket.on("join-room", (roomId) => {
+      // In production, authorize the user before joining a room.
+      socket.join(`room:${roomId}`);
+    });
+
+    socket.on("chat-message", ({ roomId, message }) => {
+      // Validate payload and verify room membership/permissions in production.
+      io.to(`room:${roomId}`).emit("chat-message", {
+        message,
+        from: socket.id,
+      });
+    });
+  });
+
+  httpServer.listen(4000, () => {
+    console.log("Socket.IO server listening on port 4000");
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exitCode = 1;
+});
+~~~
+
+### Step 3: Understand the flow
+
+1. Server Redis ke liye separate publisher aur subscriber connections banata hai.
+2. Dono Redis clients connect hone ke baad adapter Socket.IO par configure hota hai.
+3. Client `join-room` event se room join karta hai.
+4. Message aane par `io.to(room).emit(...)` local server ke matching clients ko bhejta hai aur Redis adapter doosre Socket.IO server instances tak broadcast forward karta hai.
+
+## 📊 Important Concepts
+
+| Concept | Explanation |
+|---|---|
+| Socket.IO | Real-time event communication and connection management |
+| Redis Pub/Sub | Socket.IO server instances ke beech broadcast packets forward karta hai |
+| Redis adapter | Socket.IO ko Redis Pub/Sub ke saath connect karta hai |
+| Publisher client | Redis par adapter messages publish karta hai |
+| Subscriber client | Redis adapter channels se messages receive karta hai |
+| Room | Related connected clients ko group karke targeted event bhejne ka Socket.IO feature |
+| Multiple Node.js servers | Broadcasts ko instances ke across coordinate kar sakte hain |
+
+## ⚠️ Production Notes — Interview Important
+
+- **Redis adapter messages store nahi karta.** It uses Pub/Sub, so messages are not persisted for offline subscribers and cannot be replayed through the adapter.
+- **Sticky sessions may still be required** when Socket.IO uses HTTP long-polling. Redis adapter alone does not remove that requirement.
+- If Redis disconnects, broadcasts can be limited to clients connected to the current Socket.IO server until Redis connectivity is restored.
+- Protect Redis with private networking, authentication/ACLs, TLS where appropriate, and firewall rules. Validate socket events and authorize room membership; never trust arbitrary client-provided room IDs.
+- The Socket.IO Redis adapter is for Socket.IO servers. For a raw WebSocket server (for example, using `ws`), implement your own Redis Pub/Sub integration rather than using the Socket.IO adapter.
+
+Official reference: https://socket.io/docs/v4/redis-adapter/
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I use the Socket.IO Redis adapter to scale real-time applications across multiple Node.js instances. Redis Pub/Sub forwards broadcast packets between servers, so clients in the same room can receive events regardless of which instance they are connected to. The adapter does not persist messages, and sticky sessions may still be needed when HTTP long-polling is enabled."
+- **Hinglish Quick Memory:** "Multiple Socket.IO servers ko sync karne ke liye Redis adapter use karte hain. Ek server ka room broadcast Redis Pub/Sub ke through doosre servers tak jaata hai. Adapter messages store nahi karta; scaling setup mein sticky sessions aur Redis security ka bhi dhyan rakhna chahiye."
+
 ---
 
 *More answers will be added in question order, using this format.*
