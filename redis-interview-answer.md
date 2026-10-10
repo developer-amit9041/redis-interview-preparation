@@ -11037,6 +11037,143 @@ If `INCR` and `EXPIRE` are sent as separate commands, an application or connecti
 - **English Pitch:** "I implement rate limiting using Redis by maintaining a request counter per client and attaching a time-to-live to it. Requests below the configured limit are allowed, while requests exceeding the limit receive HTTP 429. For reliable concurrent updates, I can use an atomic Redis Lua script. Redis also allows multiple application instances to share the same counters."
 - **Hinglish Quick Memory:** "Redis mein user ya IP ke liye counter maintain karte hain. Request aane par counter increment hota hai, aur limit exceed hone par `429 Too Many Requests` return karte hain. `INCR` aur expiry ko Lua script mein rakhne se counter update atomic rehta hai. Multiple Node.js servers bhi same Redis counter use kar sakte hain."
 
+# 🚀 Question 113: How Do You Implement OTP Expiration Using Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+OTP expiration in Redis can be implemented by storing the OTP (preferably a secure digest of it) with a time-to-live (TTL). For example, using `SET key value EX 300` makes the key expire after 300 seconds. Once expired, the OTP cannot be retrieved from Redis for verification.
+
+## 🗣️ Answer in Hinglish
+
+Redis mein OTP expiration ke liye OTP ko ek key ke andar store karke TTL set kar dete hain. Maan lo OTP sirf 5 minutes ke liye valid hai, toh `EX 300` use karenge.
+
+- OTP generate karo aur user ko approved delivery channel se send karo.
+- Redis mein OTP ka secure digest `EX 300` ke saath store karo.
+- Verification ke waqt stored digest retrieve karo.
+- Agar key expire ho chuki hai ya exist nahi karti, toh OTP invalid maana jayega.
+- Successful verification ke baad OTP key delete karo, taaki wahi OTP dobara use na ho.
+
+**Security point:** Production mein plaintext OTP store karne se bachna chahiye. OTP attempts ko rate-limit karo, aur OTP ko response ya application logs mein expose mat karo.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+Generate OTP
+    |
+    v
+Send OTP to user
+    |
+    v
+Store OTP digest in Redis with TTL = 300 seconds
+    |
+    v
+User submits OTP
+    |
+    v
+Read digest from Redis
+    |
+    +---- Key missing/expired ----> Reject OTP
+    |
+    v
+Compare submitted OTP digest
+    |
+    +---- Invalid ----> Reject (apply attempt limits)
+    |
+    v
+Valid OTP -> Delete key -> Continue verification flow
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Store a demo OTP with a 5-minute TTL
+
+~~~bash
+SET otp:user:123 123456 EX 300
+~~~
+
+Redis response:
+
+~~~text
+OK
+~~~
+
+**Note:** Yeh command demo ke liye hai. Real applications mein OTP ka secure digest store karo, plaintext OTP nahi.
+
+### Step 2: Check remaining lifetime
+
+~~~bash
+TTL otp:user:123
+~~~
+
+Redis remaining seconds return karega. Exact value elapsed time par depend karegi. Jab key expire ho jayegi, `GET otp:user:123` ka result `(nil)` hoga.
+
+### Step 3: Delete after successful verification
+
+~~~bash
+DEL otp:user:123
+~~~
+
+Successful verification ke baad key delete karne se OTP single-use banane mein help milti hai.
+
+## 💻 Node.js Example (node-redis v4)
+
+~~~javascript
+const crypto = require("node:crypto");
+
+function digestOtp(otp) {
+  return crypto
+    .createHmac("sha256", process.env.OTP_SECRET)
+    .update(otp)
+    .digest("hex");
+}
+
+async function storeOtp(redisClient, userId, otp) {
+  const key = `otp:${userId}`;
+  const digest = digestOtp(otp);
+
+  // Store only the digest, and expire it after 5 minutes.
+  await redisClient.set(key, digest, { EX: 300 });
+}
+
+async function verifyOtp(redisClient, userId, submittedOtp) {
+  if (!/^\d{6}$/.test(submittedOtp)) return false;
+
+  const key = `otp:${userId}`;
+  const storedDigest = await redisClient.get(key);
+
+  if (!storedDigest) return false; // Missing or expired.
+
+  const submittedDigest = digestOtp(submittedOtp);
+  const matches = crypto.timingSafeEqual(
+    Buffer.from(storedDigest, "hex"),
+    Buffer.from(submittedDigest, "hex")
+  );
+
+  if (matches) {
+    await redisClient.del(key); // Make OTP single-use.
+  }
+
+  return matches;
+}
+~~~
+
+Is example mein Redis client pehle se connected hona chahiye, `OTP_SECRET` strong secret hona chahiye, aur OTP delivery function ko application ke approved SMS/email provider se integrate karna hoga.
+
+## 📊 Important Points
+
+| Feature | Explanation |
+|---|---|
+| `EX 300` | Key ko 300 seconds, yani 5 minutes ke baad expire karta hai |
+| `TTL key` | Remaining lifetime check karta hai |
+| Expired OTP | Redis key missing hoti hai, isliye verification reject karo |
+| One-time use | Successful verification par key delete karo |
+| Production security | OTP digest store karo, attempts limit karo, logs mein OTP expose mat karo |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I implement OTP expiry by storing an OTP digest in Redis with a TTL, for example five minutes using `EX 300`. During verification, I reject missing or expired values, compare the submitted OTP securely, and delete the key after successful verification. I also enforce rate limits on OTP requests and verification attempts."
+- **Hinglish Quick Memory:** "OTP ko Redis mein TTL ke saath store karo, jaise `EX 300` for 5 minutes. Key expire ho jaye toh OTP reject karo, successful verification ke baad key delete karo, aur production mein digest, rate limiting aur secure logging use karo."
+
 # 🚀 Question 114: How Do You Implement a Distributed Lock Using Redis?
 
 ## 📝 Answer (English — Interview Definition)
