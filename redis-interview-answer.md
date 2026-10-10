@@ -13542,6 +13542,130 @@ redis-cli MEMORY USAGE user:101
 - **English Pitch:** "To find large Redis keys, I use `redis-cli --bigkeys` to identify large collections and `MEMORY USAGE key` to estimate the memory consumed by a specific key. For production troubleshooting, I avoid `KEYS *`, use incremental scans, and consider splitting oversized data structures or using `UNLINK` for large-key deletion."
 - **Hinglish Quick Memory:** "Bhai, `--bigkeys` se large collections identify karte hain, aur `MEMORY USAGE` se specific key ki memory check karte hain. Production mein `KEYS *` avoid karo, `SCAN` use karo, aur zaroorat padne par large data ko smaller keys mein split karo."
 
+# 🚀 Question 134: What Is Pipelining in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis pipelining is a technique that allows a client to send multiple Redis commands to the server without waiting for each individual response.** The server processes the commands and returns their responses together, reducing network round trips and improving throughput.
+
+Pipelining is especially useful when an application needs to execute many independent Redis commands efficiently.
+
+## 🗣️ Answer in Hinglish
+
+Normally jab hum Redis ko commands bhejte hain, toh client command send karta hai aur response ka wait karta hai. Uske baad next command bhejta hai.
+
+Agar humein bahut saari commands execute karni hain, toh har command ke liye alag network round trip lag sakta hai.
+
+**Pipelining mein hum multiple commands ek saath bhej dete hain**, har response ka individually wait nahi karte. Redis commands process karke responses return karta hai. Isse network latency kam hoti hai aur throughput improve ho sakta hai.
+
+### Real-World Example
+
+MERN application mein 500 product details Redis mein cache karni hain. Har product ke liye alag request bhejne ke bajaye pipelining se multiple `SET` commands ek batch mein send kar sakte hain.
+
+## 🏗️ Architecture Diagram
+
+### Without Pipelining
+
+~~~text
+Client -- SET key1 --> Redis
+Client <-- Response -- Redis
+
+Client -- SET key2 --> Redis
+Client <-- Response -- Redis
+
+Client -- SET key3 --> Redis
+Client <-- Response -- Redis
+~~~
+
+### With Pipelining
+
+~~~text
+Client
+  |
+  | SET key1
+  | SET key2
+  | SET key3
+  | (sent together)
+  v
+Redis Server
+  |
+  | Responses for all commands
+  v
+Client
+~~~
+
+Iska main benefit network round trips ko reduce karna hai. Commands aur responses phir bhi individually exist karte hain.
+
+## 💻 Practical Code Example — Node.js + Redis
+
+Example below uses the `ioredis` package.
+
+~~~javascript
+const Redis = require("ioredis");
+
+const redis = new Redis();
+
+async function cacheProducts() {
+  try {
+    const results = await redis
+      .pipeline()
+      .set("product:101", "Laptop")
+      .set("product:102", "Keyboard")
+      .set("product:103", "Mouse")
+      .get("product:101")
+      .exec();
+
+    for (const [error, result] of results) {
+      if (error) {
+        console.error("Command failed:", error.message);
+      } else {
+        console.log("Result:", result);
+      }
+    }
+  } finally {
+    await redis.quit();
+  }
+}
+
+cacheProducts().catch(console.error);
+~~~
+
+### Code kaise work karta hai?
+
+1. `redis.pipeline()` pipelined command batch create karta hai.
+2. `set()` aur `get()` commands batch mein queue hote hain.
+3. `exec()` commands bhejta hai aur unke results return karta hai.
+4. `results` mein har command ka result `[error, result]` format mein hota hai.
+
+Production application mein Redis connection ko generally application lifetime tak reuse karna chahiye; har function call ke baad connection close karna sirf is standalone example ko self-contained rakhne ke liye hai.
+
+## 📊 Important Points
+
+| Feature | Explanation |
+|---|---|
+| Main purpose | Multiple commands efficiently send karna |
+| Biggest benefit | Network round trips reduce karna |
+| Performance | Throughput improve ho sakta hai |
+| Atomicity | Pipelining apne aap atomic nahi hoti |
+| Transactions | Atomic transaction behavior ke liye `MULTI`/`EXEC` use kiya ja sakta hai |
+| Best use case | Bulk reads/writes aur multiple independent commands |
+| Limitation | Bahut large pipeline se memory usage aur response buffering badh sakti hai |
+
+### Pipelining vs Transactions
+
+| Feature | Pipelining | Redis Transaction |
+|---|---|---|
+| Purpose | Network efficiency | Commands ko isolated transaction mein execute karna |
+| Commands batch mein send hoti hain? | Yes | Yes, using `MULTI`/`EXEC` |
+| Atomicity | No | Execution ke dauran commands interleave nahi hoti |
+| Automatic rollback | No | Runtime command errors par automatic rollback nahi |
+| Best use case | Bulk independent commands | Related commands jinko ek isolated execution unit chahiye |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis pipelining allows a client to send multiple commands without waiting for each command's response individually. It reduces network round trips and can improve throughput. However, pipelining does not make the commands atomic."
+- **Hinglish Quick Memory:** "Pipelining mein multiple Redis commands ek batch mein bhejte hain, har command ke response ka alag wait nahi karte. Isse network round trips kam aur performance better ho sakti hai. Lekin pipelining aur transaction same nahi hain—pipelining apne aap atomicity provide nahi karti."
+
 ---
 
 *More answers will be added in question order, using this format.*
