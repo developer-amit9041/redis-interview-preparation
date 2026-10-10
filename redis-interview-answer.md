@@ -2747,6 +2747,176 @@ await redis.del(`product:${productId}`);
 - **English Pitch:** "The Redis DEL command removes one or more specified keys and returns the number of keys deleted. It is commonly used for cache invalidation after primary database records change."
 - **Hinglish Quick Memory:** DEL command Redis keyspace se ek ya multiple keys delete karta hai aur batata hai kitni keys delete hui. Cache invalidation ke liye yeh common choice hai; large data structures ko remove karne ke case mein UNLINK bhi consider kar sakte hain.
 
+# 🚀 Question 30: What Are INCR and DECR in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+INCR and DECR are atomic Redis operations used to increment or decrement an integer value stored at a key by exactly one.
+
+The defining characteristic of these commands is their absolute atomicity. Because Redis processes commands in a single-threaded execution loop, it guarantees that even if thousands of concurrent requests attempt to modify the same counter simultaneously, each operation will execute as an indivisible unit without any data race conditions. They are heavily utilized in scale architectures for real-time page-view counters, active global inventory limits, metrics tracking, and sliding-window rate limiters.
+
+## 🗣️ Answer in Hinglish
+
+Bhai, Redis mein INCR aur DECR commands ka use numbers aur counters ko modify aur manage karne ke liye kiya jata hai:
+
+- **INCR (Increment):** Key ki integer value ko exactly 1 se badha deta hai.
+- **DECR (Decrement):** Key ki integer value ko exactly 1 se ghatata hai.
+
+~~~text
+Step 1: SET page_views 10
+Step 2: INCR page_views   ──► Returns: 11
+Step 3: DECR page_views   ──► Returns: 10
+~~~
+
+### 💡 Critical Background Behavior
+
+Agar koi key pehle se memory mein exist nahi karti hai, toh Redis use automatic 0 assume karta hai. Uske baad agar aapne INCR chalaya toh value 1 ho jayegi, aur agar DECR chalaya toh value -1 ho jayegi. Yeh features dynamic counting systems ke liye useful hain.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. Counter base setup initialize karna
+  await redis.set("page_views", 10);
+
+  // 2. INCR — Value ko 1 se atomically push up karna
+  console.log("After INCR:", await redis.incr("page_views")); // Output: 11
+
+  // 3. DECR — Value ko 1 se atomically pull down karna
+  console.log("After DECR:", await redis.decr("page_views")); // Output: 10
+
+  // 4. INCRBY — Kisi specific custom step amount se counter badhana
+  console.log("After INCRBY 5:", await redis.incrBy("page_views", 5)); // Output: 15
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Concurrent Page Views Tracking)
+
+MERN stack analytics engines mein users ke clicks aur concurrent traffic views ko high performance par increment is tarah kiya jata hai:
+
+~~~javascript
+// High traffic application route trigger par view count badhana
+await redis.incr("product:101:views");
+~~~
+
+**⚠️ Production Security Note:** E-commerce applications mein stock counter banate waqt yaad rakhein ki DECR command zero ke baad numbers ko negative (-1, -2) mein le jata hai. Yeh automatically checking block nahi lagata. Negative inventory (overselling) se bachne ke liye backend validation logic separately handle karna hoga.
+
+## 📋 Counter Operations Reference Table
+
+| Core Command | Step Value | Technical Purpose | Production Example |
+|---|---:|---|---|
+| INCR key | +1 | Value ko atomically 1 se plus karna. | `INCR dashboard:total_visitors` |
+| DECR key | -1 | Value ko atomically 1 se minus karna. | `DECR product:stock:active` |
+| INCRBY key 10 | +Custom | Integer value ko specified parameter se add up karna. | `INCRBY analytics:clicks 10` |
+| DECRBY key 5 | -Custom | Integer value ko specified custom size se ghatana. | `DECRBY product:stock:active 5` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "INCR and DECR are atomic Redis commands that adjust an integer value by one, preventing lost updates when concurrent requests operate on the same counter. They are useful for metrics such as page counters and rate-limiting windows."
+- **Hinglish Quick Memory:** INCR matlab counter ko 1 point up karna, DECR matlab counter ko 1 point down karna. Kyunki yeh atomic hain, isliye concurrent users ke requests aane par bhi update operation indivisible rehta hai. Custom numbers badhane ke liye INCRBY aur DECRBY use karte hain.
+
+---
+
+# 🚀 Question 31: What Are HSET and HGET in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+HSET and HGET are core Redis commands dedicated to writing and reading specific fields within a Hash data structure.
+
+- **HSET (Hash Set):** Creates or updates a field-value pair nested inside a master hash key namespace.
+- **HGET (Hash Get):** Extracts the string value of a singular nested field without loading the surrounding data footprint.
+
+These commands are fundamental for managing object-oriented representations natively in memory (such as multi-attribute user session maps or individual item SKUs), keeping related fields under one hash key.
+
+## 🗣️ Answer in Hinglish
+
+HSET aur HGET dono hi Redis Hash data structure ke primary commands hain.
+
+Aap ise ek database entry ya JavaScript object data fields ki tarah imagine karein. Kisi ek flat master key ke andar multiple key-value nodes update ya read karne ke liye inka use hota hai:
+
+~~~text
+Master Key: "user:101"
+
+Fields (Internal Keys) ──► Stored Values
+----------------------     -------------
+name                 ──►   "Amit"
+role                 ──►   "Developer"
+city                 ──►   "Delhi"
+~~~
+
+Execution format is tarah dikhta hai:
+
+~~~text
+HSET user:101 name "Amit"  ──► Adds field to schema object.
+HGET user:101 name         ──► Returns strictly: "Amit"
+~~~
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. HSET — Pure details map layout ko cluster block standard par save karna
+  await redis.hSet("user:101", {
+    name: "Amit",
+    role: "Developer",
+    city: "Delhi"
+  });
+
+  // 2. HGET — Bina baaki attributes parse kiye direct single field access karna
+  const extractName = await redis.hGet("user:101", "name");
+  console.log("Target Field Value:", extractName); // Output: Amit
+
+  // 3. HSET via mutation update — Single node element override change
+  await redis.hSet("user:101", "city", "Mumbai");
+  console.log("Updated City Property:", await redis.hGet("user:101", "city")); // Output: Mumbai
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Granular Profile Caching)
+
+MERN stack middlewares mein authentication routing block load speed optimize karne ke liye hum user profile ke specific field ko directly read kar sakte hain:
+
+~~~javascript
+// Authorization check engine mein full object load ki zaroorat ke bina role read karna
+const currentUserRole = await redis.hGet("user:101", "role");
+console.log(currentUserRole); // Output: Developer
+~~~
+
+## 📋 Hash Command Manifest Table
+
+| Command Strategy | Operations Goal | Production Use Case Scenario |
+|---|---|---|
+| HSET key field val | Specific sub-property field write/overwrite karna. | Updating profile statuses, toggling theme flags. |
+| HGET key field | Single target internal attribute read karna. | Checking user roles or authentication configurations. |
+| HGETALL key | Pure structural object map ko read load karna. | Rebuilding entire user session state inside controllers. |
+| HDEL key field | Master hash block se single nested field delete karna. | Clearing temporary tokens inside active records. |
+| HEXISTS key field | Field validation logic trace check lagana. | Verifying if a field exists before running business logic. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "HSET writes field-value pairs into a hash stored under one key, while HGET extracts a specific field. They let applications update or read individual fields without fetching and parsing an entire serialized JSON string."
+- **Hinglish Quick Memory:** HSET se hash object ke andar field create ya change hota hai, aur HGET se poore object ko fetch kiye bina specific target field ki live value uthai jaati hai. MERN projects mein user dashboard variables aur schema properties load karne ke liye yeh useful commands hain.
+
 ---
 
 *More answers will be added in question order, using this format.*
