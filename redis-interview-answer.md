@@ -4757,6 +4757,77 @@ await redis.set(
 - **English Pitch:** "Avoid caching raw passwords, CVVs, or sensitive secrets. Do not use Redis as the sole source of truth for critical transactional values. Highly volatile or rarely accessed large datasets may also be poor candidates when the freshness, hit rate, and memory cost do not justify caching."
 - **Hinglish Quick Memory:** Raw password aur CVV Redis mein store mat karo. Checkout inventory, balance, aur payment jaise critical decisions ke liye authoritative database/ledger validate karo. Jo data bahut jaldi change hota hai ya rarely read hota hai, uska cache-hit benefit evaluate karke hi Redis mein rakho.
 
+## 🔴 Level 4 — Persistence
+
+# 🚀 Question 56: Does Redis Persist Data?
+
+## 📝 Answer (English — Interview Definition)
+
+Yes. Redis can persist its in-memory dataset to disk using two main mechanisms: **RDB snapshots** and **AOF (Append Only File)**. These options can be configured independently, disabled, or used together.
+
+RDB saves point-in-time snapshots at configured intervals or when triggered manually. AOF records write operations according to its configured fsync policy. If persistence is disabled, the in-memory dataset is not recovered from RDB/AOF files after a restart, although other recovery mechanisms such as replicas or external backups may exist.
+
+## 🗣️ Answer in Hinglish
+
+Haan, Redis data ko disk par persist kar sakta hai. Redis mainly RAM mein kaam karta hai, lekin restart ya crash ke baad data recover karne ke liye persistence configure ki ja sakti hai.
+
+Redis ke do main persistence mechanisms hain:
+
+1. **RDB (Snapshots):** Configured interval par dataset ka point-in-time snapshot disk par save hota hai, aam taur par `dump.rdb` file mein.
+2. **AOF (Append Only File):** Redis write operations ko AOF file mein log karta hai. Disk par data kitni jaldi sync hoga, yeh configured fsync policy par depend karta hai.
+
+~~~text
+[ Node.js Write Command ]
+           |
+           v
+ [ Redis In-Memory Dataset ]
+           |
+           +-----------------------+
+           |                       |
+           v                       v
+ [ RDB Snapshot File ]      [ AOF Write Log ]
+   Periodic snapshot       Writes recorded according
+   e.g. dump.rdb            to configured fsync policy
+~~~
+
+**Important interview point:** `await redis.set()` ka matlab yeh nahi hai ki write usi moment durable disk storage par fsync ho gayi. Durability Redis persistence configuration aur operating-system/filesystem behavior par depend karti hai.
+
+## 💻 Practical Example & CLI Verification
+
+~~~javascript
+// Write a key from Node.js
+await redis.set(
+  "user:101",
+  JSON.stringify({ name: "Amit", role: "Developer" })
+);
+~~~
+
+Redis server ki persistence configuration inspect karne ke liye terminal mein run karein:
+
+~~~bash
+redis-cli INFO persistence
+~~~
+
+Useful output fields include:
+
+- `rdb_last_save_time`: last successful RDB save ka Unix timestamp.
+- `aof_enabled`: AOF enabled hai ya nahi (1 = enabled, 0 = disabled).
+- `aof_current_size`: current AOF file ka size, bytes mein, when AOF is enabled.
+
+## 📋 Core Persistence Reality Table
+
+| Configuration | Behavior | Important Trade-off |
+|---|---|---|
+| Persistence disabled | Dataset is primarily in memory. | The dataset cannot be restored from RDB/AOF files after a restart. |
+| RDB enabled | Point-in-time snapshots are written to disk. | Changes since the last successful snapshot may be lost. |
+| AOF enabled | Write operations are logged according to fsync policy. | Durability and performance depend on policy and storage behavior. |
+| RDB + AOF | Both mechanisms are enabled. | Provides recovery options from both mechanisms, with additional storage and operational considerations. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis supports persistence through RDB snapshots and AOF write logs. RDB captures point-in-time datasets, while AOF records write operations according to its fsync policy. The recovery and potential data-loss window depend on the persistence configuration."
+- **Hinglish Quick Memory:** Redis data ko disk par save kar sakta hai. RDB periodic snapshot banata hai aur AOF write operations log karta hai. Persistence enable karna aur uski policy choose karna decide karta hai ki restart ke baad kitna data recover ho sakta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
