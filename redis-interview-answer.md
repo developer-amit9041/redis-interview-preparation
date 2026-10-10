@@ -4828,6 +4828,76 @@ Useful output fields include:
 - **English Pitch:** "Redis supports persistence through RDB snapshots and AOF write logs. RDB captures point-in-time datasets, while AOF records write operations according to its fsync policy. The recovery and potential data-loss window depend on the persistence configuration."
 - **Hinglish Quick Memory:** Redis data ko disk par save kar sakta hai. RDB periodic snapshot banata hai aur AOF write operations log karta hai. Persistence enable karna aur uski policy choose karna decide karta hai ki restart ke baad kitna data recover ho sakta hai.
 
+# 🚀 Question 57: What Is Redis RDB?
+
+## 📝 Answer (English — Interview Definition)
+
+RDB is Redis's snapshot-based persistence mechanism. It creates a point-in-time binary snapshot of the Redis dataset and saves it to disk, typically in a file named `dump.rdb`.
+
+For a background save, Redis uses `BGSAVE` to create a child process that writes the snapshot while the main process continues handling requests. By contrast, `SAVE` performs the save synchronously and blocks Redis while the operation runs, so it is generally avoided on busy production servers. RDB can load data quickly during recovery, but writes made after the last successful snapshot may be lost if Redis crashes before the next snapshot.
+
+## 🗣️ Answer in Hinglish
+
+RDB ka matlab Redis ka **snapshot-based backup mechanism** hai. Redis apne dataset ka point-in-time binary snapshot banakar disk par save karta hai, usually `dump.rdb` file mein.
+
+Maan lo Redis memory mein 10,000 product records hain. Configured interval par Redis un records ka snapshot save kar sakta hai. Agar crash last snapshot ke baad aur next successful snapshot se pehle ho jaaye, toh us interval mein hue changes recovery ke baad missing ho sakte hain.
+
+### 🛠️ SAVE vs BGSAVE
+
+- **SAVE (blocking):** Redis main process ko save operation ke dauran block karta hai. Busy production server par isse requests delay ho sakti hain.
+- **BGSAVE (background):** Redis child process ke through snapshot generate karta hai, taaki main process generally requests handle karta rahe. Fork aur heavy disk I/O phir bhi resource overhead create kar sakte hain.
+
+## 💻 Practical Code Example & CLI Trigger
+
+~~~javascript
+// Write product data from Node.js into Redis
+await redis.set(
+  "product:101",
+  JSON.stringify({ name: "Laptop", price: 50000 })
+);
+~~~
+
+Terminal se background RDB save trigger karne ke liye:
+
+~~~bash
+redis-cli BGSAVE
+~~~
+
+Redis usually reports that background saving has started. To inspect persistence status afterwards, run `redis-cli INFO persistence` and check the RDB status fields.
+
+## 🔄 Real-World MERN Recovery Scenario
+
+~~~text
+01:00 PM  [ RDB snapshot succeeds ]
+          product:101 cached price = ₹50,000
+
+01:04 PM  [ MongoDB and Redis are updated ]
+          product:101 cached price = ₹45,000
+
+01:05 PM  [ Redis crashes before another successful snapshot ]
+
+After recovery:
+Redis may restore the older snapshot value (₹50,000)
+if that key is still eligible to be loaded and has not expired.
+~~~
+
+Yeh example dikhata hai ki RDB snapshots ke beech ka data-loss window ho sakta hai. Redis cache use kar rahe ho toh source of truth MongoDB hi rehna chahiye, aur restored cache values ki freshness ko application design mein consider karna chahiye.
+
+## 📋 RDB Capabilities Specification Matrix
+
+| Operational Attribute | RDB Characteristics |
+|---|---|
+| Default snapshot file | Commonly `dump.rdb` (configurable). |
+| Core benefit | Compact snapshot and generally fast startup loading. |
+| Main limitation | Changes since the last successful snapshot may be lost. |
+| Resource overhead | Forking and disk I/O can consume CPU and memory resources, especially for large datasets. |
+| Typical role | Point-in-time backups and recovery snapshots. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "RDB is Redis's snapshot-based persistence mechanism. It saves a point-in-time binary dataset, usually to `dump.rdb`. `BGSAVE` performs the save in a child process, while `SAVE` blocks the server. RDB offers compact backups and fast recovery, but changes after the last snapshot may be lost."
+- **Hinglish Quick Memory:** RDB Redis memory ka periodic snapshot hai jo `dump.rdb` file mein save hota hai. Production mein generally `BGSAVE` use hota hai kyunki save background child process se hota hai. Snapshot ke baad ke changes crash hone par lost ho sakte hain.
+
 ---
 
 *More answers will be added in question order, using this format.*
