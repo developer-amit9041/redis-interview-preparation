@@ -3944,6 +3944,66 @@ if (cachedProducts) {
 - **English Pitch:** "A Cache Hit occurs when requested data is found in the cache, allowing the application to return it without querying the primary database. A high cache hit ratio can reduce response latency and database load."
 - **Hinglish Quick Memory:** Cache Hit ka matlab hai memory check pass ho jana. Jab client data mange aur woh Redis se mil jaye, toh MongoDB par query nahi chalani padti. Isse repeated requests fast ho sakti hain aur database ka workload kam hota hai.
 
+# 🚀 Question 44: What Is Cache Miss?
+
+## 📝 Answer (English — Interview Definition)
+
+A Cache Miss occurs when an application looks up a key in the cache but the requested data is not available—for example, because it has never been cached, was evicted, or its TTL expired.
+
+In a cache-aside flow, the application falls back to the primary database, retrieves the record, and commonly stores it in the cache so later requests can be served as cache hits. A high cache-miss rate can indicate a cold cache, a workload with many unique keys, short TTLs, or a cache policy that does not match the access pattern.
+
+## 🗣️ Answer in Hinglish
+
+Cache Miss ka matlab hai ki requested data Redis memory mein available nahi hai. Data pehle cache nahi hua ho sakta hai, evict ho gaya ho sakta hai, ya uska TTL expire ho gaya ho sakta hai.
+
+Maan lijiye user kisi product ka page open karta hai:
+
+1. User API ko request bhejta hai.
+2. Node.js backend Redis mein data check karta hai.
+3. Data missing hone par Cache Miss hota hai.
+4. Cache-aside implementation mein backend MongoDB se data fetch karta hai, Redis mein TTL ke saath store karta hai, aur response return karta hai.
+
+Note: First request par cache miss ho sakta hai, lekin zaroori nahi—agar cache pehle se populate hai, toh first application request bhi hit ho sakti hai.
+
+## 💻 Practical Code Example (Cache Miss Fallback)
+
+~~~javascript
+const cacheKey = `product:${productId}`;
+const cachedProduct = await redis.get(cacheKey);
+
+if (cachedProduct) {
+  console.log("Cache Hit");
+  return res.json(JSON.parse(cachedProduct));
+}
+
+// Cache Miss: read from MongoDB
+console.log("Cache Miss: loading product from MongoDB");
+const product = await Product.findById(productId).lean();
+
+if (!product) {
+  return res.status(404).json({ message: "Requested database record does not exist" });
+}
+
+// Populate Redis for a subsequent request
+await redis.set(cacheKey, JSON.stringify(product), { EX: 300 });
+
+return res.json(product);
+~~~
+
+## 📊 Structural Comparison Summary
+
+| Evaluation Metric | Cache Hit | Cache Miss |
+|---|---|---|
+| Cache state | Data is present in Redis. | Data is absent or expired. |
+| Database operation | Usually bypassed for this read. | Fallback database read is needed in cache-aside. |
+| Latency | Usually lower; depends on network, payload size, and workload. | Usually higher because the request also reads the database. |
+| Follow-up flow | Return cached data. | Fetch data, optionally populate cache, then return data. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Cache Miss means the requested key is not available in the cache. In the cache-aside pattern, the application reads from the primary database and commonly populates the cache so later requests may become cache hits."
+- **Hinglish Quick Memory:** Cache Miss ka matlab Redis mein data nahi mila. Backend MongoDB se data fetch karta hai aur future requests ke liye Redis mein TTL ke saath save kar sakta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
