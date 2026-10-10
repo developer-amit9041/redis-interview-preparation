@@ -5142,6 +5142,81 @@ appendfsync everysec
 - **English Pitch:** "AOF generally offers better durability than RDB because it records write operations and its potential data-loss window can be smaller. Actual durability depends on the `appendfsync` policy and storage behavior. RDB may lose changes since the last snapshot, and both methods can be enabled together."
 - **Hinglish Quick Memory:** Durability ke liye AOF generally better hai, kyunki yeh write operations log karta hai, jabki RDB periodic snapshot leta hai. `everysec` common balance hai but absolute guarantee nahi. Critical orders/payments ke liye authoritative database/ledger ko source of truth rakho.
 
+# 🚀 Question 62: Can We Use RDB + AOF Together?
+
+## 📝 Answer (English — Interview Definition)
+
+Yes. Redis supports enabling RDB snapshots and AOF persistence at the same time. The two mechanisms complement each other: RDB provides compact point-in-time snapshots that are useful for backups and recovery, while AOF records write operations according to its configured fsync policy.
+
+When both are enabled, Redis normally uses the AOF file to reconstruct the dataset during startup because it is expected to be more complete than the latest RDB snapshot. This does not guarantee zero data loss in every failure scenario; actual durability still depends on the AOF fsync policy, storage behavior, and whether persistence files are valid.
+
+## 🗣️ Answer in Hinglish
+
+Haan bhai, Redis mein RDB aur AOF dono ek saath enable kar sakte hain. Dono ke roles complementary hain:
+
+- **RDB:** Point-in-time snapshots banata hai. Ye compact backup aur recovery workflows ke liye useful hai.
+- **AOF:** Write operations ko configured fsync policy ke according log karta hai, jisse snapshot interval ke beech changes recover karne mein help mil sakti hai.
+
+**Important interview point:** Agar RDB aur AOF dono enabled hain, toh startup recovery mein Redis normally AOF file ko use karta hai, kyunki woh latest RDB snapshot se zyada complete state contain karne ki expectation hoti hai. Lekin ise zero-data-loss guarantee nahi kehna chahiye—durability fsync policy aur storage behavior par depend karti hai.
+
+## 💻 Practical Code Example (Hybrid Persistence Configuration)
+
+Node.js application writes same rehti hain; hybrid persistence Redis server configuration se control hoti hai.
+
+~~~javascript
+await redis.set(
+  "user:101",
+  JSON.stringify({ name: "Amit", role: "Developer" })
+);
+~~~
+
+Example settings in `redis.conf`:
+
+~~~text
+# RDB snapshot rules (illustrative)
+save 900 1
+save 300 10
+
+# Enable AOF as well
+appendonly yes
+appendfsync everysec
+~~~
+
+Exact persistence settings ko durability requirements, Redis version, disk performance, and recovery objectives ke basis par test karke choose karein.
+
+## 🔄 Hybrid Persistence Flow
+
+~~~text
+          [ Redis In-Memory Dataset ]
+                      |
+             +--------+--------+
+             |                 |
+             v                 v
+      [ RDB Snapshot ]   [ AOF Write Log ]
+       Point-in-time     Writes per fsync policy
+             |                 |
+             v                 v
+      Compact backups     Replay during recovery
+
+  If both are enabled, startup normally prefers AOF recovery.
+  Actual durability depends on configuration and storage.
+~~~
+
+## 📋 Hybrid Persistence Summary Table
+
+| Requirement | Mechanism | Main Benefit / Trade-off |
+|---|---|---|
+| Point-in-time snapshot | RDB | Compact backups and convenient snapshot transfer. |
+| More granular write recovery | AOF | Recovery depends on configured fsync policy. |
+| Both enabled | RDB + AOF | Provides both snapshot and log-based persistence options. |
+| Restart recovery | Normally loads AOF when enabled | AOF is expected to represent a more complete dataset than the last RDB snapshot. |
+| Zero-data-loss guarantee | Neither automatically provides this in every failure case | Test persistence, backups, replication, and recovery procedures. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Yes, Redis can use RDB and AOF together. RDB provides compact point-in-time snapshots, while AOF records write operations according to its fsync policy. When both are enabled, Redis normally uses AOF for startup recovery, but actual durability depends on configuration and storage behavior."
+- **Hinglish Quick Memory:** RDB aur AOF dono saath chala sakte hain. RDB snapshot backup deta hai, AOF write logs record karta hai. Restart par Redis normally AOF se recover karta hai, lekin zero data loss ki guarantee sirf in settings se nahi milti.
+
 ---
 
 *More answers will be added in question order, using this format.*
