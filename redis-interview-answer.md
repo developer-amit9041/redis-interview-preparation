@@ -8608,6 +8608,113 @@ Yahan `-c` cluster-aware CLI mode enable karta hai, jo zaroorat padne par comman
 - **English Pitch:** "We use Redis Cluster for horizontal scaling, increased data capacity, and high availability. It distributes data across multiple primary nodes using hash slots and uses replicas to support failover. However, it does not guarantee zero downtime or zero data loss."
 - **Hinglish Quick Memory:** "Redis Cluster tab use karte hain jab ek Redis server ki capacity ya throughput insufficient ho. Yeh data ko multiple primaries mein distribute karta hai aur replicas ke through failover support karta hai."
 
+# 🚀 Question 96: What Is Sharding in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+**Sharding is the process of partitioning a dataset across multiple Redis nodes.** Instead of storing all keys on one server, Redis Cluster maps keys to hash slots and distributes those slots among primary nodes, allowing the dataset and workload to be spread across the cluster.
+
+## 🗣️ Answer in Hinglish
+
+Sharding ka matlab data ko chhote portions mein divide karke multiple servers par store karna hai.
+
+Maan lo application mein users ke millions of records hain. Saara Redis data ek hi server par rakhne ke bajaye hum usse multiple Redis primary nodes mein distribute kar sakte hain.
+
+Redis Cluster mein:
+
+1. Total **16,384 hash slots** hote hain.
+2. Redis key ke basis par uska hash slot calculate karta hai.
+3. Har primary node ko kuch hash slots assign hote hain.
+4. Key jis slot ki hai, request us slot ko own karne wale node par route hoti hai.
+
+Isse data aur request handling multiple nodes mein distribute ho sakti hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+               Application
+                    |
+             Redis Cluster
+                    |
+          +---------+---------+
+          |         |         |
+          v         v         v
+      Primary A Primary B Primary C
+      Slots      Slots     Slots
+      0–5000     5001–10000 10001–16383
+~~~
+
+Yeh slot ranges sirf illustration hain; real cluster mein slot assignments configuration aur resharding ke according vary karte hain.
+
+## 💻 Practical Redis CLI Example
+
+Cluster par different keys set karo:
+
+~~~bash
+redis-cli -c SET user:101 "Amit"
+redis-cli -c SET user:202 "Rahul"
+redis-cli -c SET product:501 "Laptop"
+~~~
+
+Har key ka slot check karne ke liye:
+
+~~~bash
+redis-cli -c CLUSTER KEYSLOT user:101
+redis-cli -c CLUSTER KEYSLOT user:202
+redis-cli -c CLUSTER KEYSLOT product:501
+~~~
+
+Redis har key ke liye hash slot number return karega. Cluster ke primary nodes un slots ko own karte hain, aur cluster-aware client requests ko correct node tak pahunchane mein help karta hai.
+
+### Node.js Example with ioredis
+
+~~~javascript
+const Redis = require("ioredis");
+
+const cluster = new Redis.Cluster([
+  { host: "127.0.0.1", port: 7000 },
+  { host: "127.0.0.1", port: 7001 },
+  { host: "127.0.0.1", port: 7002 },
+]);
+
+async function main() {
+  await cluster.set("user:101", "Amit");
+  const user = await cluster.get("user:101");
+  console.log(user); // Amit
+}
+
+main().catch(console.error);
+~~~
+
+Yeh example assume karta hai ki listed addresses par Redis Cluster nodes properly configured aur accessible hain.
+
+## 📊 Important Points
+
+| Concept | Explanation |
+|---|---|
+| Sharding | Dataset ko multiple nodes mein partition karna |
+| Hash slot | Redis Cluster mein keys ko partition map karne ka logical unit |
+| Number of slots | 16,384 |
+| Primary node | Assigned slots ke liye data aur writes handle karta hai |
+| Replica | Primary ka data replicate karti hai aur failover mein help kar sakti hai |
+| Cluster-aware client | Key ke slot ke according requests route karta hai |
+
+### Sharding vs Replication
+
+| Feature | Sharding | Replication |
+|---|---|---|
+| Purpose | Data ko multiple nodes par distribute karna | Data ki copies maintain karna |
+| Main benefit | Capacity aur aggregate throughput scale karna | Availability aur failover support |
+| Data placement | Different shards par different keys/slots | Replica par primary ke data ki copy |
+| Redis Cluster example | Primary A, B aur C alag slots own karte hain | Replica A, Primary A ka data replicate karti hai |
+
+**Easy trick:** Sharding ka matlab data divide karna; replication ka matlab data ki copy maintain karna.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Sharding partitions a dataset across multiple Redis nodes. In Redis Cluster, each key maps to one of 16,384 hash slots, and primary nodes own assigned slots. This distributes storage and workload and enables horizontal scaling."
+- **Hinglish Quick Memory:** "Redis sharding mein data multiple primary nodes mein divide hota hai. Redis Cluster har key ko hash slot assign karta hai; jis node ke paas woh slot hai, request wahan route hoti hai. Isse ek server par poora load nahi rehta."
+
 ---
 
 *More answers will be added in question order, using this format.*
