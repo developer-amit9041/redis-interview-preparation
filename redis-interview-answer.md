@@ -12261,6 +12261,89 @@ With `allkeys-lru`, Redis can evict keys from the entire keyspace using an appro
 - **English Pitch:** "When Redis reaches its configured `maxmemory` limit, its response depends on the eviction policy. It may evict eligible keys to free memory, or with `noeviction`, reject writes that need more memory with an OOM error. I would monitor Redis memory usage and choose an eviction policy based on whether Redis is being used as a cache or for data that must not be evicted."
 - **Hinglish Quick Memory:** "Redis memory limit par pahunchta hai toh eviction policy decide karti hai kya hoga. `allkeys-lru` eligible keys evict kar sakta hai, jabki `noeviction` mein memory badhane wali write fail ho sakti hai. Isliye `INFO memory`, `maxmemory` aur `maxmemory-policy` monitor karna important hai."
 
+# 🚀 Question 123: What Is LRU?
+
+## 📝 Answer (English — Interview Definition)
+
+**LRU stands for Least Recently Used.** It is a cache eviction strategy that removes keys that have not been accessed recently when Redis needs to free memory. Redis provides LRU-based eviction policies such as `allkeys-lru` and `volatile-lru`.
+
+Redis uses an **approximated LRU algorithm**, which estimates which keys are least recently used rather than maintaining a perfectly exact LRU ordering.
+
+## 🗣️ Answer in Hinglish
+
+LRU ka full form **Least Recently Used** hai.
+
+Jab Redis ki memory limit reach ho jaati hai aur eviction policy LRU configured hoti hai, toh Redis aise keys ko remove karne ki koshish karta hai jinhe kaafi time se access nahi kiya gaya.
+
+Example: Maan lo Redis mein `user:101`, `user:102` aur `user:103` cached hain. Agar `user:101` ko kaafi time se access nahi kiya gaya aur baaki keys recently use hui hain, toh LRU-based policy `user:101` ko evict karne ke liye prefer kar sakti hai.
+
+**Important:** LRU policy automatically tabhi eviction ke liye use hoti hai jab memory limit aur configured eviction policy usko allow karein.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       Redis Memory Limit Reached
+                  |
+                  v
+        LRU Eviction Policy
+                  |
+                  v
+       Estimate key access recency
+                  |
+                  v
+        Select less recently used key
+                  |
+                  v
+             Evict the key
+                  |
+                  v
+           Free memory space
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Configure a memory limit and LRU policy
+
+Testing environment mein example:
+
+~~~bash
+redis-cli CONFIG SET maxmemory 100mb
+redis-cli CONFIG SET maxmemory-policy allkeys-lru
+~~~
+
+`100mb` sirf example hai. Production mein limit server ki available memory aur workload ke hisaab se choose karo.
+
+### Step 2: Check the policy
+
+~~~bash
+redis-cli CONFIG GET maxmemory
+redis-cli CONFIG GET maxmemory-policy
+~~~
+
+Common LRU policies:
+
+- `allkeys-lru` — memory limit reach hone par all keys mein se LRU candidates select karta hai.
+- `volatile-lru` — sirf un keys mein se LRU candidates select karta hai jin par expiration/TTL set hai.
+
+**Note:** Redis LRU approximate hota hai, isliye har case mein bilkul mathematically least-recently-used key hi remove ho, yeh guarantee nahi hai. Memory limit reach hone aur policy ke applicable hone par eviction hoti hai.
+
+## 📊 Important Points
+
+| Feature | Explanation |
+|---|---|
+| Full form | Least Recently Used |
+| Purpose | Memory pressure mein keys evict karna |
+| Selection basis | Recent access ka estimate |
+| `allkeys-lru` | All keys eviction candidates ho sakti hain |
+| `volatile-lru` | Sirf TTL wali keys candidates hoti hain |
+| Exact or approximate? | Redis LRU approximate hai |
+| Eviction kab hoti hai? | Memory limit reach hone par, jab configured policy eviction allow karti hai |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "LRU stands for Least Recently Used. Redis offers LRU-based eviction policies that prefer keys estimated to have been accessed least recently when memory needs to be freed. Redis uses an approximated LRU algorithm, with `allkeys-lru` and `volatile-lru` as common policy choices."
+- **Hinglish Quick Memory:** "LRU ka matlab Least Recently Used hai. Memory limit reach hone par Redis LRU policy ke through kam recently accessed keys ko evict karne ki koshish karta hai. `allkeys-lru` sabhi keys consider karta hai, jabki `volatile-lru` sirf TTL wali keys ko consider karta hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
