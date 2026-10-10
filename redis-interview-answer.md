@@ -159,8 +159,6 @@ Jab product request aati hai, application pehle Redis check karti hai. Cache mis
 - MERN application mein Redis MongoDB ke frequently accessed data ko cache karke repeated queries kam karne mein help karta hai.
 - Cache invalidation/TTL zaroor plan karein taaki stale data serve na ho.
 
-## 🟢 Level 1 — Must Know Basics
-
 # 🚀 Question 2: Why is Redis so fast?
 
 ## 📝 Answer (English)
