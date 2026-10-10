@@ -1148,6 +1148,175 @@ main().catch((err) => {
 
 **Interview answer to remember:** “Common Redis commands include SET, GET, DEL, EXISTS, EXPIRE, TTL, and INCR. Redis also provides data-type-specific commands such as HSET, LPUSH/RPUSH, SADD, and ZADD for manipulating Hashes, Lists, Sets, and Sorted Sets.”
 
+# 🚀 Question 11: How Does Redis Store Data?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis stores data as **key-value pairs in an in-memory keyspace**. Each key identifies an entry, and its value can be a String, Hash, List, Set, Sorted Set, Stream, or another supported data structure.
+
+Redis primarily uses RAM to provide very fast data access. Internally, it uses optimized data structures and encodings to manage values efficiently. Redis can also persist data to disk using **RDB snapshots** and **AOF (Append-Only File)**, depending on its configuration.
+
+## 🗣️ Answer (Hinglish)
+
+Redis data ko **Key-Value Pair** ke form mein store karta hai.
+
+- **Key:** Data ka naam ya identifier.
+- **Value:** Us key ke andar stored actual data.
+- **RAM:** Redis primarily memory mein data rakhta hai, isliye data access fast hota hai.
+- **Data types:** Value sirf simple text nahi hoti; Hash, List, Set, Sorted Set jaise structures bhi store kar sakte hain.
+- **Persistence:** RDB aur AOF ki help se configured data disk par save kiya ja sakta hai.
+
+Example:
+
+```text
+Key             Value
+-----------------------------------
+username        Amit
+user:101        Hash: name=Amit, age=28
+tasks           List: Learn Redis, Learn Node.js
+leaderboard     Sorted Set: members with scores
+```
+
+Har key kisi particular value ya data structure ko identify karti hai.
+
+## 📊 Redis Data Storage Types
+
+| Data type | Kya store karta hai? | Example |
+|---|---|---|
+| **String** | Simple text, numbers, or serialized JSON | Username, cached product |
+| **Hash** | Fields aur values | User profile |
+| **List** | Ordered elements; duplicates allowed | Task list |
+| **Set** | Unique elements | Unique user IDs |
+| **Sorted Set** | Score ke according ordered members | Leaderboard |
+| **Stream** | Ordered event entries | Order events |
+
+## 💻 Code Example — Node.js + Redis
+
+### Step 1: Install package
+
+```bash
+npm install redis
+```
+
+### Step 2: Create `app.js`
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({
+    url: "redis://localhost:6379",
+  });
+
+  redis.on("error", (err) => {
+    console.error("Redis Error:", err);
+  });
+
+  await redis.connect();
+
+  // 1. String: store a simple value.
+  await redis.set("username", "Amit");
+
+  // 2. Hash: store object-like fields.
+  await redis.hSet("user:101", {
+    name: "Amit",
+    age: "28",
+  });
+
+  // 3. List: store ordered items.
+  await redis.rPush("tasks", [
+    "Learn Redis",
+    "Learn Node.js",
+  ]);
+
+  // Retrieve stored data.
+  console.log("Username:", await redis.get("username"));
+  console.log("User:", await redis.hGetAll("user:101"));
+  console.log("Tasks:", await redis.lRange("tasks", 0, -1));
+
+  await redis.quit();
+}
+
+main().catch((err) => {
+  console.error("Application Error:", err);
+  process.exitCode = 1;
+});
+```
+
+### Expected output
+
+```text
+Username: Amit
+User: { name: 'Amit', age: '28' }
+Tasks: [ 'Learn Redis', 'Learn Node.js' ]
+```
+
+*Note:* The exact object formatting may vary by Node.js version. Redis must be running at `localhost:6379` for this example.
+
+## 🔍 Code Kaise Work Karta Hai?
+
+1. `createClient()` Redis client create karta hai.
+2. `connect()` Redis server se connection establish karta hai.
+3. `SET` String value ko key ke against store karta hai.
+4. `HSET` Hash ke andar multiple fields store karta hai.
+5. `RPUSH` List mein elements add karta hai.
+6. `GET`, `HGETALL` aur `LRANGE` stored values retrieve karte hain.
+
+## 🔄 Redis Data Storage Architecture
+
+```text
+       [ Node.js Application ]
+                 |
+                 | SET / HSET / RPUSH
+                 v
+           [ Redis Server ]
+                 |
+                 v
+             [ Keyspace ]
+                 |
+          +------+------+------+
+          |      |      |      |
+          v      v      v      v
+       String   Hash   List   Set/ZSet
+          |      |      |      |
+          +------+------+------+
+                 |
+                 v
+          [ RAM / Memory ]
+
+     Optional persistence (configured)
+                 |
+           +-----+-----+
+           |           |
+           v           v
+      RDB Snapshot   AOF File
+```
+
+Redis primarily RAM se data access karta hai. Agar persistence enabled aur configured hai, toh RDB snapshots ya AOF ke through data disk par save ho sakta hai. Restart ke baad recovery persistence configuration par depend karti hai.
+
+## 📋 Quick Summary Table
+
+| Point | Explanation |
+|---|---|
+| Storage model | Key-value based keyspace |
+| Primary storage | RAM |
+| Values | Strings, Hashes, Lists, Sets, Sorted Sets, Streams, etc. |
+| Internal implementation | Optimized data structures and encodings |
+| Persistence | RDB and AOF, depending on configuration |
+| Main benefit | Fast, low-latency data access |
+| Node.js package | `redis` |
+
+## ⏱️ Easy Revision — 1-Minute Notes
+
+- Redis data ko key-value pairs mein store karta hai.
+- Key data ko identify karti hai aur value actual data rakhti hai.
+- Redis primarily RAM use karta hai, isliye data access fast hota hai.
+- Values Strings, Hashes, Lists, Sets, Sorted Sets aur Streams jaise structures ho sakti hain.
+- RDB aur AOF ke through disk persistence configure ki ja sakti hai.
+- Node.js mein `SET`, `HSET`, aur `RPUSH` se data store kar sakte hain.
+
+**Interview answer to remember:** “Redis stores data as key-value pairs in an in-memory keyspace. It supports data structures such as Strings, Hashes, Lists, Sets, Sorted Sets, and Streams. Redis uses optimized internal data structures for efficient access and supports RDB and AOF persistence to save data to disk when configured.”
+
 ---
 
 *More answers will be added in question order, using this format.*
