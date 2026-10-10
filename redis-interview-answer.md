@@ -5736,6 +5736,156 @@ Run `node subscriber.js` first, then run `node publisher.js` in another terminal
 - **English Pitch:** "We use Redis Pub/Sub for real-time communication between different parts of an application. It supports loose coupling, message broadcasting, and communication between services. Common use cases include notifications, chat applications, and live dashboards, but messages are not persisted for offline subscribers."
 - **Hinglish Quick Memory:** Redis Pub/Sub ka use real-time messaging ke liye hota hai. Publisher channel par message bhejta hai aur active subscribers receive karte hain. Isse services loosely coupled rehti hain, lekin offline subscriber message miss kar sakta hai.
 
+# 🚀 Question 69: How Does Redis Pub/Sub Work?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis Pub/Sub works through three main components: a publisher, a channel, and subscribers. The publisher sends a message to a Redis channel using `PUBLISH`; Redis broadcasts that message to clients currently subscribed to the channel using `SUBSCRIBE`.
+
+This provides real-time event delivery without requiring the publisher to know each subscriber. Pub/Sub messages are not stored for disconnected clients, so a subscriber that is offline at publish time can miss the message.
+
+## 🗣️ Answer in Hinglish
+
+Redis Pub/Sub mainly 3 steps mein kaam karta hai:
+
+1. **Publisher:** `PUBLISH` command ke through message send karta hai.
+2. **Channel:** Redis mein named channel hota hai, jaise `order_events`.
+3. **Subscriber:** `SUBSCRIBE` karke channel listen karta hai aur message receive karta hai.
+
+Example: MERN application mein order place hone par Node.js Order Service `order_events` channel par event publish karti hai. Redis us waqt subscribed Notification Service aur Admin Dashboard ko message broadcast karta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+      [ Publisher — Node.js ]
+                 |
+                 | PUBLISH order_events
+                 v
+          [ Redis Channel ]
+            order_events
+                 |
+        +--------+--------+
+        |                 |
+        v                 v
+[ Subscriber A ]   [ Subscriber B ]
+ Notification         Admin Dashboard
+ Service
+~~~
+
+## 💻 Practical Node.js Code Example
+
+Install the Redis client:
+
+~~~bash
+npm install redis
+~~~
+
+Make sure Redis is running at the client's configured address (default is commonly `localhost:6379`).
+
+### Step 1: Subscriber — `subscriber.js`
+
+Start the subscriber first so it is listening before the publisher sends a message.
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const subscriber = createClient();
+  subscriber.on("error", (error) => console.error("Redis Subscriber Error:", error));
+
+  await subscriber.connect();
+
+  await subscriber.subscribe("order_events", (message) => {
+    try {
+      console.log("Message received:", JSON.parse(message));
+    } catch (error) {
+      console.error("Invalid message payload:", error);
+    }
+  });
+
+  console.log("Subscribed to order_events");
+}
+
+main().catch(console.error);
+~~~
+
+### Step 2: Publisher — `publisher.js`
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const publisher = createClient();
+  publisher.on("error", (error) => console.error("Redis Publisher Error:", error));
+
+  await publisher.connect();
+
+  const order = {
+    orderId: 101,
+    status: "Order Placed"
+  };
+
+  const subscriberCount = await publisher.publish(
+    "order_events",
+    JSON.stringify(order)
+  );
+
+  console.log("Message published");
+  console.log("Subscribers reached:", subscriberCount);
+
+  await publisher.quit();
+}
+
+main().catch(console.error);
+~~~
+
+### Step 3: Execute the Code
+
+Terminal 1:
+
+~~~bash
+node subscriber.js
+~~~
+
+Terminal 2:
+
+~~~bash
+node publisher.js
+~~~
+
+Example subscriber output:
+
+~~~text
+Subscribed to order_events
+Message received: { orderId: 101, status: 'Order Placed' }
+~~~
+
+Flow: `publish()` sends a message → Redis broadcasts it to currently subscribed clients → subscriber callback handles the message.
+
+## ⚙️ Redis Pub/Sub Commands
+
+| Command | Purpose |
+|---|---|
+| `SUBSCRIBE order_events` | Subscribe to a named channel. |
+| `PUBLISH order_events "Hello"` | Publish a message to a channel. |
+| `UNSUBSCRIBE order_events` | Stop receiving messages from a channel. |
+| `PSUBSCRIBE order_*` | Subscribe to channels matching a pattern. |
+
+## ⚠️ Important Technical Point
+
+Redis Pub/Sub provides **at-most-once delivery**:
+
+- If a client is connected and subscribed, it can receive the published message.
+- If a subscriber is offline at publish time, it misses that message.
+- Redis Pub/Sub does not store messages for later delivery or replay.
+
+If message persistence, replay, or consumer-group processing is required, consider Redis Streams.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Pub/Sub uses publishers, channels, and subscribers. A publisher sends a message to a channel, and Redis broadcasts it to active subscribers. Messages are not persisted, so disconnected subscribers can miss them."
+- **Hinglish Quick Memory:** Publisher `PUBLISH` karta hai, Redis channel ke active subscribers ko broadcast karta hai, aur subscriber callback message process karta hai. Offline subscriber message miss kar sakta hai kyunki Pub/Sub messages store nahi karta.
+
 ---
 
 *More answers will be added in question order, using this format.*
