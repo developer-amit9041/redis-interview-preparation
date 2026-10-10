@@ -6213,6 +6213,61 @@ Kafka mein publisher `order_events` topic par event produce karta hai, aur consu
 - **English Pitch:** "I would choose Redis Pub/Sub for lightweight, real-time broadcasting. I would choose Kafka when I need durable event storage, replay, and scalable event processing."
 - **Hinglish Quick Memory:** "Redis Pub/Sub live broadcast ke liye hai—message history nahi hoti. Kafka events ko store karta hai, aur consumers baad mein unhe read ya replay kar sakte hain."
 
+# 🚀 Question 74: Redis Pub/Sub vs RabbitMQ?
+
+## 📝 Answer (English — Interview Definition)
+
+**Redis Pub/Sub** broadcasts messages to currently subscribed clients through named channels. It is simple and fast, but messages are not stored for offline subscribers.
+
+**RabbitMQ** is a message broker that routes messages through exchanges to queues. It supports queue-based delivery, acknowledgements, and configurable durability and retry patterns, making it suitable for reliable background job processing.
+
+## 🗣️ Answer in Hinglish
+
+Redis Pub/Sub mein publisher channel par message send karta hai aur active subscribers ko message milta hai. Agar subscriber offline ho, toh message miss ho sakta hai.
+
+RabbitMQ mein publisher message ko **exchange** par publish karta hai. Exchange routing rules ke according message ko queue mein bhejta hai, aur consumer queue se message process karta hai. Durable queues, persistent messages, acknowledgements aur retries configure karke more reliable processing banayi ja sakti hai.
+
+### Example
+
+E-commerce website par user order place karta hai:
+
+- **Redis Pub/Sub:** Live admin dashboard ko batana ki naya order aaya hai.
+- **RabbitMQ:** Email confirmation ya background invoice-generation job queue mein rakhna, taaki worker baad mein process kar sake—even if worker temporarily unavailable ho, provided queue/message durability appropriately configured ho.
+
+## 📊 Comparison Table
+
+| Feature | Redis Pub/Sub | RabbitMQ |
+|---|---|---|
+| Main purpose | Real-time broadcasting | Message brokering and queue-based processing |
+| Core mechanism | Channels | Exchanges and queues |
+| Message persistence | Pub/Sub messages persist nahi hote | Queue/message durability configure ki ja sakti hai |
+| Offline consumer | Message miss ho sakta hai | Message queue mein wait kar sakta hai, depending on configuration |
+| Acknowledgements | Queue-style consumer acknowledgements nahi | Consumer acknowledgements supported |
+| Retries | Built-in durable queue retry workflow nahi | Retry and dead-letter patterns configure kiye ja sakte hain |
+| Routing | Channel-based | Direct, topic, fanout aur other exchange types |
+| Best use case | Live updates and ephemeral events | Background jobs and reliable message workflows |
+
+## 💻 Simple Example
+
+Redis Pub/Sub:
+
+```bash
+# Subscriber terminal
+redis-cli SUBSCRIBE email_notifications
+
+# Publisher terminal
+redis-cli PUBLISH email_notifications "Send order confirmation"
+```
+
+RabbitMQ mein producer message ko exchange par publish karta hai. Routing configuration ke through message queue mein pahunchta hai, phir consumer acknowledgement ke saath usse process kar sakta hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I would use Redis Pub/Sub for simple, low-latency broadcasting. I would prefer RabbitMQ for queue-based task processing that needs acknowledgements, retries, and configurable message durability."
+- **Hinglish Quick Memory:** "Redis Pub/Sub message ko active subscribers tak broadcast karta hai. RabbitMQ messages ko queues ke through route aur process karta hai, jahan acknowledgements aur retries configure kiye ja sakte hain."
+
+**Important:** RabbitMQ choose karne se delivery guarantee automatically nahi milti—queue/message durability, acknowledgements, retries aur consumer idempotency ki configuration bhi matter karti hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
