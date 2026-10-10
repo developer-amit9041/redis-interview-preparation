@@ -10350,6 +10350,268 @@ High-concurrency applications mein versioning, coordinated invalidation, reliabl
 - **English Pitch:** "In a Redis cache-aside pattern, I update MongoDB first and then invalidate the corresponding Redis key using `DEL`. The next read becomes a cache miss, fetches the updated document from MongoDB, and repopulates Redis. In production, I also consider invalidation failures, TTLs, and race conditions to reduce the risk of stale data."
 - **Hinglish Quick Memory:** "Pehle MongoDB update karo, phir Redis ki related cache key `DEL` se delete karo. Next request par cache miss hoga, MongoDB se latest data aayega aur Redis mein dobara store ho jayega. Production mein Redis deletion fail hone aur concurrent requests ki race condition bhi handle karni chahiye."
 
+# 🚀 Question 110: How Do You Implement Redis Session Management in Express?
+
+## 📝 Answer (English — Interview Definition)
+
+Redis session management in Express is implemented using `express-session` with a Redis-backed session store such as `connect-redis`. The server stores session data in Redis, while the browser keeps a session ID in a cookie. On subsequent requests, Express uses that session ID to retrieve the session data from Redis.
+
+This supports shared sessions across multiple Node.js instances and avoids relying on Express's default in-memory session store, which is not suitable for production.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo user hamari MERN application mein login karta hai. Hume user ko har request par dobara login nahi karwana. Iske liye hum **Express session + Redis** use kar sakte hain.
+
+1. User login karta hai aur credentials verify hote hain.
+2. Express ek session create karta hai aur session data Redis mein store karta hai.
+3. Browser ko session ID cookie mein milti hai.
+4. Next request par browser cookie bhejta hai.
+5. Express session ID ki help se Redis se session retrieve karta hai aur user ko identify karta hai.
+6. Logout par session destroy kar diya jata hai.
+
+**Important:** Browser cookie mein usually session ID hoti hai, poora session data nahi. `express-session` ka default `MemoryStore` production ke liye suitable nahi hai; Redis shared, server-side session storage provide karta hai.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+           Browser / Client
+                  |
+                  | Login request
+                  v
+            Express Server
+                  |
+           Verify credentials
+                  |
+                  v
+          Create session ID
+                  |
+          +-------+--------+
+          |                |
+          v                v
+   Session data       Session ID cookie
+   stored in Redis    sent to browser
+          |                |
+          +-------+--------+
+                  |
+           Next API request
+                  |
+          Browser sends cookie
+                  |
+                  v
+       Express reads session ID
+                  |
+                  v
+          Fetch session from Redis
+                  |
+                  v
+          Identify authenticated user
+~~~
+
+## 💻 Practical Implementation — Express + Redis + MongoDB
+
+### Step 1: Install packages
+
+~~~bash
+npm install express express-session redis connect-redis mongoose bcrypt
+~~~
+
+This example uses modern ES module imports. Set `"type": "module"` in `package.json`, and configure these environment variables in `.env`:
+
+~~~env
+REDIS_URL=redis://localhost:6379
+SESSION_SECRET=use-a-long-random-secret-from-your-environment
+MONGO_URI=mongodb://127.0.0.1:27017/myapp
+NODE_ENV=development
+~~~
+
+Never hardcode `SESSION_SECRET` in source code or commit it to a public repository.
+
+### Step 2: Configure Redis and the session store
+
+~~~javascript
+// app.js
+import express from "express";
+import session from "express-session";
+import { createClient } from "redis";
+import { RedisStore } from "connect-redis";
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+
+import User from "./models/User.js";
+
+const app = express();
+const isProduction = process.env.NODE_ENV === "production";
+
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET must be configured");
+}
+
+app.use(express.json());
+
+// Set this only when deployed behind one trusted reverse proxy.
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redisClient.on("error", (error) => {
+  console.error("Redis error:", error);
+});
+
+async function startServer() {
+  await mongoose.connect(process.env.MONGO_URI);
+  await redisClient.connect();
+
+  const redisStore = new RedisStore({
+    client: redisClient,
+    prefix: "myapp:sess:",
+  });
+
+  app.use(
+    session({
+      name: "sid",
+      store: redisStore,
+      secret: process.env.SESSION_SECRET,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+        maxAge: 1000 * 60 * 60, // 1 hour
+      },
+    })
+  );
+
+  // Register the login, profile, and logout routes here,
+  // after session middleware and before app.listen().
+
+  app.listen(3000, () => {
+    console.log("Server running on port 3000");
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
+});
+~~~
+
+### Step 3: Create a login route
+
+Assume the MongoDB `User` model has an `email` field and a hashed `passwordHash` field. Add this route where indicated in `startServer()`, after the session middleware and before `app.listen()`.
+
+~~~javascript
+app.post("/login", async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select("+passwordHash");
+
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    // Regenerate the session ID after successful authentication.
+    req.session.regenerate((error) => {
+      if (error) return next(error);
+
+      req.session.userId = String(user._id);
+
+      // Save before sending the response.
+      req.session.save((saveError) => {
+        if (saveError) return next(saveError);
+
+        return res.json({
+          message: "Login successful",
+        });
+      });
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+~~~
+
+Login ke baad session regenerate karna session fixation risk ko reduce karne mein help karta hai. Password ko plain text mein store nahi karna; database mein password hash store hona chahiye.
+
+### Step 4: Protect a route using the session
+
+Add this route in the same place, after session middleware:
+
+~~~javascript
+app.get("/profile", async (req, res, next) => {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({
+        message: "Please log in first",
+      });
+    }
+
+    const user = await User.findById(req.session.userId)
+      .select("-passwordHash");
+
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found",
+      });
+    }
+
+    return res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+~~~
+
+Browser apni `sid` cookie request ke saath bhejta hai. `express-session` us session ID se Redis mein saved session retrieve karta hai; application `req.session.userId` se logged-in user identify karti hai.
+
+### Step 5: Logout and destroy the session
+
+~~~javascript
+app.post("/logout", (req, res, next) => {
+  req.session.destroy((error) => {
+    if (error) return next(error);
+
+    res.clearCookie("sid", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
+    return res.json({ message: "Logged out successfully" });
+  });
+});
+~~~
+
+Logout par server-side session destroy hota hai aur browser cookie clear hoti hai.
+
+## 📊 Important Concepts
+
+| Concept | Explanation |
+|---|---|
+| `express-session` | Express middleware that manages session IDs and session data. |
+| `connect-redis` | Stores Express sessions in Redis. |
+| Session ID cookie | Browser ko identify karne ke liye session ID carry karti hai. |
+| Redis session store | Session data ko server side par store karta hai. |
+| `saveUninitialized: false` | Unmodified, uninitialized sessions ko store karne se bachata hai. |
+| `resave: false` | Unmodified sessions ko har request par unnecessarily save karne se bachata hai. |
+| `cookie.maxAge` | Cookie ki configured lifetime set karta hai. |
+| `req.session.destroy()` | Logout ke waqt session destroy karta hai. |
+| `req.session.regenerate()` | Login ke baad naya session ID generate karta hai. |
+
+**Production security note:** HTTPS par secure cookies use karo aur `trust proxy` ko actual trusted infrastructure ke hisaab se configure karo. Cross-origin frontend/backend use kar rahe ho, toh CORS credentials aur cookie `SameSite` settings ko carefully configure karna hoga.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "I implement Redis session management in Express using `express-session` and `connect-redis`. After authenticating a user, the server stores the user's ID in a session held in Redis, while the browser receives a session ID cookie. On future requests, Express loads the session from Redis. I regenerate the session ID after login, configure secure cookie settings and expiration, and destroy the session on logout."
+- **Hinglish Quick Memory:** "Express mein `express-session` ke saath `connect-redis` use karte hain. Login ke baad session data Redis mein save hota hai aur browser ko session ID cookie milti hai. Next request par Express Redis se session read karta hai. Secure cookies, TTL, login ke baad session regenerate karna aur logout par session destroy karna important hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
