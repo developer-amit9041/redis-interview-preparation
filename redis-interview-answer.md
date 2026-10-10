@@ -4962,6 +4962,78 @@ redis-cli BGREWRITEAOF
 - **English Pitch:** "AOF persists Redis write operations in an append-only log and replays them during recovery. Its durability depends on the `appendfsync` policy: `always`, `everysec`, or `no`. Background AOF rewriting helps reduce the log's size."
 - **Hinglish Quick Memory:** AOF write commands ko append-only log mein record karta hai aur restart ke waqt replay karta hai. `appendfsync everysec` common performance/durability balance hai, par exact data-loss window system behavior par depend karti hai. File size manage karne ke liye AOF rewrite hota hai.
 
+# 🚀 Question 59: RDB vs AOF?
+
+## 📝 Answer (English — Interview Definition)
+
+RDB and AOF are Redis's two main persistence mechanisms, but they store recovery information differently.
+
+- **RDB** creates point-in-time snapshots of the dataset. Snapshot files are often compact and can load quickly during recovery, but writes since the last successful snapshot may be lost.
+- **AOF** records write operations in an append-only log and replays them during recovery. It can provide a smaller potential loss window depending on its fsync policy, but the log may use more disk space and replay may take longer before rewrite.
+
+Redis can be configured to use either mechanism or both. The right choice depends on the required durability, recovery-time objective, storage budget, and workload; neither method is universally best for every deployment.
+
+## 🗣️ Answer in Hinglish
+
+Bhai, dono ka kaam Redis data ko restart/crash ke baad recover karne mein help karna hai, lekin approach alag hai:
+
+- **RDB (Snapshot):** Memory dataset ka point-in-time snapshot banata hai aur disk par save karta hai—jaise data ki photo. File aksar compact hoti hai aur recovery fast ho sakti hai, lekin last successful snapshot ke baad ke writes lose ho sakte hain.
+- **AOF (Write Log):** Write operations ko log karta hai aur recovery par replay karta hai—jaise operation diary. Durability fsync policy par depend karti hai; file rewrite hone se pehle badi ho sakti hai aur replay time zyada lag sakta hai.
+
+~~~text
+[ Redis Dataset ]
+       |
+       +--------------------------+
+       |                          |
+       v                          v
+[ RDB Snapshot ]             [ AOF Write Log ]
+Point-in-time copy           Recorded mutations
+       |                          |
+       v                          v
+Often compact / fast load    Replay during recovery
+Snapshot-gap data-loss risk  Durability depends on fsync policy
+~~~
+
+## 💻 Practical Example & Server Configuration
+
+Node.js writes ka code same rehta hai; persistence strategy Redis server configuration se decide hoti hai.
+
+~~~javascript
+await redis.set("product:101", JSON.stringify({ name: "Laptop", price: 50000 }));
+await redis.set("product:102", JSON.stringify({ name: "Mobile", price: 20000 }));
+~~~
+
+Example configuration in `redis.conf`:
+
+~~~text
+# RDB snapshot rules (example intervals)
+save 900 1
+save 300 10
+
+# AOF logging
+appendonly yes
+appendfsync everysec
+~~~
+
+These settings are illustrative. Actual snapshot schedule, fsync behavior, and combined persistence configuration should be chosen based on Redis version, durability needs, and operational testing.
+
+## 📊 Deep Structural Comparison Matrix
+
+| Feature | Redis RDB Snapshot | Redis AOF Log |
+|---|---|---|
+| Saving concept | Point-in-time dataset snapshot. | Append-only record of write operations. |
+| File sizing | Often compact. | May grow until rewritten. |
+| Recovery speed | Usually fast to load. | Can take longer while operations are replayed. |
+| Data-loss risk | Depends on time since last successful snapshot. | Depends on fsync policy and failure mode. |
+| Main advantage | Compact backups and quick restore. | More granular recovery with an appropriate fsync policy. |
+| Main trade-off | Snapshot interval can create a loss window. | Disk I/O, file growth, and replay overhead. |
+| Can be combined? | Yes, with AOF. | Yes, with RDB. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "RDB saves point-in-time snapshots, which are often compact and quick to load, while AOF logs write operations and replays them during recovery. RDB may lose changes since the last snapshot; AOF's loss window depends on its fsync policy. Redis can use either or both according to durability and recovery requirements."
+- **Hinglish Quick Memory:** RDB data ki periodic photo hai, AOF write commands ki diary. RDB se restore usually fast hota hai, lekin snapshot ke baad changes lose ho sakte hain. AOF ka data-loss risk fsync policy par depend karta hai; file replay aur size ka cost ho sakta hai. Dono saath bhi configure kiye ja sakte hain.
+
 ---
 
 *More answers will be added in question order, using this format.*
