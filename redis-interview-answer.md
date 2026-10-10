@@ -6268,6 +6268,107 @@ RabbitMQ mein producer message ko exchange par publish karta hai. Routing config
 
 **Important:** RabbitMQ choose karne se delivery guarantee automatically nahi milti—queue/message durability, acknowledgements, retries aur consumer idempotency ki configuration bhi matter karti hai.
 
+# 🚀 Question 75: What Happens If a Subscriber Is Offline?
+
+## 📝 Answer (English — Interview Definition)
+
+In Redis Pub/Sub, if a subscriber is offline when a message is published, it misses that message. Redis Pub/Sub does not persist messages for offline subscribers and does not provide message replay. When the subscriber reconnects and subscribes again, it receives future messages but not the messages published while it was disconnected.
+
+## 🗣️ Answer in Hinglish
+
+Redis Pub/Sub mein agar subscriber offline hai aur publisher message bhej deta hai, toh subscriber woh message **miss kar deta hai**.
+
+Redis Pub/Sub messages ko store nahi karta, isliye subscriber reconnect hone ke baad purane missed messages automatically receive nahi karega. Woh sirf naye messages receive karega, jab woh dobara channel subscribe kar lega.
+
+**Example:** E-commerce application mein `order_events` channel hai:
+
+1. Notification Service channel ko subscribe karti hai.
+2. Notification Service offline ho jaati hai.
+3. Order Service `order_events` par `"New order placed"` message publish karti hai.
+4. Notification Service reconnect karti hai, lekin woh missed message recover nahi kar sakti.
+5. Reconnect hone ke baad publish hue naye messages hi receive honge.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+Publisher
+   |
+   | PUBLISH order_events "New order placed"
+   v
+Redis Pub/Sub
+   |
+   | Subscriber OFFLINE
+   v
+Message is NOT stored for later delivery
+   |
+   v
+Subscriber reconnects and subscribes again
+   |
+   v
+Receives FUTURE messages only
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### Step 1: Start the subscriber
+
+Terminal 1 mein run karo:
+
+~~~bash
+redis-cli
+SUBSCRIBE order_events
+~~~
+
+Ab `Ctrl + C` se subscriber disconnect kar do.
+
+### Step 2: Publish while the subscriber is offline
+
+Terminal 2 mein run karo:
+
+~~~bash
+redis-cli PUBLISH order_events "Order 101 created"
+~~~
+
+Agar us waqt koi subscriber active nahi hai, toh Redis publish response dega:
+
+~~~text
+(integer) 0
+~~~
+
+Yeh `0` batata hai ki publish ke waqt message kisi subscriber ko deliver nahi hua.
+
+### Step 3: Reconnect and subscribe again
+
+Terminal 1 par dobara run karo:
+
+~~~bash
+redis-cli
+SUBSCRIBE order_events
+~~~
+
+Phir Terminal 2 par ek naya message publish karo:
+
+~~~bash
+redis-cli PUBLISH order_events "Order 102 created"
+~~~
+
+Subscriber ko `"Order 102 created"` receive hoga, lekin `"Order 101 created"` automatically nahi milega.
+
+## 📊 Important Points
+
+| Question | Answer |
+|---|---|
+| Does Redis Pub/Sub store missed messages? | No |
+| Does a subscriber receive old messages after reconnecting? | No |
+| What happens after reconnecting? | Subscriber can receive future messages after subscribing again |
+| Can missed messages be replayed through Pub/Sub? | No |
+| What can we use if message history is required? | Redis Streams, Kafka, or a suitable durable message queue |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Pub/Sub provides at-most-once message delivery. If a subscriber is offline when a message is published, that message is lost for that subscriber. Redis does not store Pub/Sub messages for replay. If message persistence and recovery are required, I would consider Redis Streams or another durable messaging system."
+- **Hinglish Quick Memory:** "Redis Pub/Sub mein subscriber offline hone par message miss ho jata hai. Reconnect karke dobara subscribe karne par sirf future messages milte hain. Purane messages recover karne ke liye Redis Streams ya kisi durable messaging system ka use kar sakte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
