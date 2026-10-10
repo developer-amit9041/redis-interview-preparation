@@ -7917,6 +7917,135 @@ This shows replication information, such as the role (`master` or `slave`/replic
 - **English Pitch:** "Redis replication copies data from a primary server to one or more replicas. It can improve read scalability and help build highly available architectures when combined with Sentinel or Redis Cluster. Replication is generally asynchronous, so replicas may lag behind and failover does not guarantee zero data loss."
 - **Hinglish Quick Memory:** "Redis replication mein primary ka data replicas par copy hota hai. Primary normally writes handle karta hai aur replicas reads serve kar sakte hain. Isse read scaling aur availability improve ho sakti hai, lekin replication asynchronous hone ki wajah se replica lag aur failover ke time data loss ka risk ho sakta hai."
 
+# 🚀 Question 89: What Is Primary-Replica Architecture?
+
+## 📝 Answer (English — Interview Definition)
+
+**Primary-Replica architecture is a database setup in which one primary node handles write operations and one or more replica nodes maintain copies of its data.** Redis replicates data from the primary to replicas, generally asynchronously. Replicas can help distribute read traffic and improve availability, but replication alone does not guarantee automatic failover or perfectly up-to-date reads.
+
+## 🗣️ Answer in Hinglish
+
+Primary-Replica architecture mein Redis ke multiple instances hote hain, lekin unke roles alag hote hain.
+
+**Primary node:**
+- Normally write operations handle karta hai, jaise `SET`, `INCR` aur `DEL`.
+- Data changes replicas ko replicate karta hai.
+
+**Replica node:**
+- Primary ke data ki copy maintain karta hai.
+- Read requests serve karne ke liye use ho sakta hai.
+- Normally primary se data receive karta hai; default setup mein direct writes read-only mode ke kaaran reject ho sakti hain.
+
+### Real-World Example
+
+Maan lo MERN e-commerce application mein bahut se users products browse kar rahe hain aur kuch users orders place kar rahe hain.
+
+Primary Redis instance write operations handle kar sakta hai, jabki replicas product-cache jaise read-heavy data ke liye read traffic distribute karne mein help kar sakte hain.
+
+**Important:** Replication generally asynchronous hoti hai, isliye replica par latest write immediately visible hona guaranteed nahi hai. Sirf replica add karne se primary failure par automatic failover guarantee nahi hota.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+               MERN Application
+                      |
+              +-------+-------+
+              |               |
+           Writes           Reads
+              |               |
+              v               v
+       +-------------+   +-------------+
+       |   PRIMARY   |-->|   REPLICA 1 |
+       |    Redis    |   |    Redis    |
+       +-------------+   +-------------+
+              |
+              | Replication
+              v
+       +-------------+
+       |   REPLICA 2 |
+       |    Redis    |
+       +-------------+
+
+Primary: normally handles writes
+Replicas: copy primary data and can serve reads
+~~~
+
+## 💻 Practical Redis CLI Example
+
+Assume primary Redis server `10.0.0.10:6379` par chal raha hai aur replica alag server par hai.
+
+### Step 1: Replica ko primary se connect karna
+
+Replica Redis instance ke CLI mein:
+
+~~~bash
+REPLICAOF 10.0.0.10 6379
+~~~
+
+Yeh replica ko specified primary se replicate karne ke liye configure karta hai. **Is command ko production mein run karne se pehle role change aur existing data ke impact ko verify karna zaroori hai.**
+
+### Step 2: Primary par data write karna
+
+Primary ke CLI par:
+
+~~~bash
+SET product:101 "Laptop"
+~~~
+
+Expected response:
+
+~~~text
+OK
+~~~
+
+### Step 3: Replica par data verify karna
+
+Replica ke CLI par:
+
+~~~bash
+GET product:101
+~~~
+
+Replication catch up kar chuki ho toh output:
+
+~~~text
+"Laptop"
+~~~
+
+Asynchronous replication ki wajah se write aur replica par read ke beech short delay possible hai.
+
+### Step 4: Replication status check karna
+
+Primary ya replica par:
+
+~~~bash
+INFO replication
+~~~
+
+Is output mein node ka `role`, connected replicas ki information aur replication-related status mil sakta hai.
+
+## 📊 Important Points
+
+| Feature | Primary | Replica |
+|---|---|---|
+| Main role | Read/write operations ka main node | Primary data ki copy maintain karta hai |
+| Writes | Normally writes handle karta hai | Default Redis replication setup mein read-only |
+| Reads | Reads serve kar sakta hai | Reads serve kar sakta hai |
+| Data | Original working dataset | Replicated copy |
+| Replication | Changes replicas ko bhejta hai | Primary se updates receive karta hai |
+| Failure handling | Failure par promotion/failover ki zaroorat ho sakti hai | Appropriate failover setup ke through promote kiya ja sakta hai |
+
+### Replication vs High Availability
+
+- **Replication** data ki copies banaye rakhti hai.
+- **High availability** failure ke dauran service continue rakhne ki capability hai.
+- **Automatic failover** ke liye Redis Sentinel ya Redis Cluster jaise suitable setup ki zaroorat hoti hai; primary-replica replication alone enough nahi hai.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Primary-Replica architecture uses one primary Redis node to handle writes and one or more replicas to maintain copies of the data. Replicas can help distribute read traffic and improve availability. Because replication is generally asynchronous, replica reads may be stale, and automatic failover requires an additional mechanism such as Redis Sentinel or Redis Cluster."
+- **Hinglish Quick Memory:** "Primary-Replica architecture mein primary normally writes handle karta hai aur replicas uske data ki copies maintain karte hain. Replicas read traffic distribute karne mein help karte hain. Lekin replication asynchronous ho sakti hai aur automatic failover ke liye Sentinel ya Cluster jaise setup ki zaroorat hoti hai."
+
 ---
 
 *More answers will be added in question order, using this format.*
