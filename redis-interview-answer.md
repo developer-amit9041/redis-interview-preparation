@@ -5279,6 +5279,72 @@ Agar Redis cache restart ke baad empty ya partially restored ho, toh Express rou
 - **English Pitch:** "Redis data recovery after restart depends on persistence configuration. With RDB, Redis loads the latest usable snapshot; with AOF, it replays the write log; and when both are enabled, it normally uses AOF for recovery. With persistence disabled, the in-memory dataset is not restored from persistence files."
 - **Hinglish Quick Memory:** Restart ke baad Redis RDB snapshot ya AOF log se data restore kar sakta hai. Dono enabled hon toh normally AOF use hota hai. Persistence off ho toh data RDB/AOF se wapas nahi aata, isliye cache-aside apps ko MongoDB se refill ka fallback rakhna chahiye.
 
+# 🚀 Question 64: What Is BGSAVE?
+
+## 📝 Answer (English — Interview Definition)
+
+`BGSAVE` is a Redis command that initiates an RDB snapshot in the background. Redis forks a child process to write the snapshot file, allowing the main process to continue handling client commands while the child performs most of the persistence work.
+
+Because it uses `fork()` and Copy-on-Write memory behavior, `BGSAVE` is not completely free of runtime impact. Large datasets can cause a brief fork pause, additional memory pressure, and CPU or disk I/O overhead while the snapshot is generated.
+
+## 🗣️ Answer in Hinglish
+
+`BGSAVE` ka full form **Background Save** hai. Is command se Redis background mein RDB snapshot banata hai.
+
+1. Redis ek child process `fork()` karta hai.
+2. Child process snapshot ko disk par write karta hai.
+3. Main Redis process generally client commands handle karta rehta hai, isliye `SAVE` ki tarah poore save duration ke liye block nahi hota.
+
+~~~text
+[ BGSAVE Command ]
+         |
+         v
+[ Redis Main Process ] --- continues processing requests
+         |
+       fork()
+         |
+         v
+[ Background Child Process ]
+         |
+         v
+[ Writes RDB Snapshot to Disk ]
+~~~
+
+## 💻 Practical Example & CLI Monitoring
+
+Terminal par background snapshot trigger karein:
+
+~~~bash
+redis-cli BGSAVE
+redis-cli INFO persistence
+~~~
+
+Useful fields:
+
+- `rdb_bgsave_in_progress`: `1` means background save in progress; `0` means it is not currently running.
+- `rdb_last_bgsave_status`: indicates whether the last background save succeeded (commonly `ok`) or failed (commonly `err`).
+
+Redis version aur environment ke hisaab se output fields verify karein.
+
+## ⚠️ Production Resource Caveat
+
+`BGSAVE` main command-processing loop ko save duration ke liye synchronously block nahi karta, lekin it is not zero-impact. Forking a large process and Copy-on-Write pages can create CPU and memory pressure, and disk I/O can affect latency. Monitor persistence metrics and test with a representative dataset.
+
+## 📋 BGSAVE Component Checklist
+
+| Operational Aspect | BGSAVE Behavior |
+|---|---|
+| Execution | Initiates asynchronous background snapshotting. |
+| Main process | Continues serving commands after the fork, except for possible brief fork-related pause. |
+| Resource use | Child process, Copy-on-Write memory, CPU, and disk I/O overhead. |
+| Output | RDB snapshot, commonly `dump.rdb` (file name/path is configurable). |
+| Typical use | Manual or configured background snapshots. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "`BGSAVE` starts an RDB snapshot in a background child process so Redis can continue serving commands. It avoids the prolonged blocking behavior of `SAVE`, but forking and Copy-on-Write can still add CPU, memory, and latency overhead."
+- **Hinglish Quick Memory:** `BGSAVE` background mein RDB snapshot banata hai. Child process disk par file write karta hai aur main Redis commands handle karta rehta hai. Lekin large dataset par fork aur memory overhead ki wajah se performance impact phir bhi ho sakta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
