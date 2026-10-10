@@ -3629,6 +3629,89 @@ async function updateProductDetails(productId, freshPayload) {
 - **English Pitch:** "Cache-Aside lets the application check the cache first, fetch from the database on a miss, and populate the cache on demand. When source data changes, the application invalidates the affected key so later requests can load fresh data."
 - **Hinglish Quick Memory:** Cache-Aside ko Lazy Loading bhi kehte hain kyunki data cache mein tabhi load hota hai jab request par cache miss aata hai. Data update hone ke baad `redis.del()` se old key delete karo, taaki next request database se fresh value la sake.
 
+# 🚀 Question 40: What Is Write-Through Cache?
+
+## 📝 Answer (English — Interview Definition)
+
+Write-Through Cache is a synchronous caching strategy where the application updates both the cache tier and the primary database during a write operation. The application reports success after the required writes have completed successfully.
+
+This pattern helps keep cached data aligned with the database, which can reduce stale reads. However, it adds write latency because the application must wait for the cache and database operations. A partial failure is still possible—for example, the database write can succeed while the Redis update fails—so production systems need an explicit failure-handling strategy.
+
+## 🗣️ Answer in Hinglish
+
+Write-Through caching mein jab bhi data update ya insert hota hai, toh cache layer aur main database dono ko synchronous way mein update kiya jata hai.
+
+Maan lo aapke MERN project mein admin ek product ki price update karta hai:
+
+1. Application MongoDB mein update query chalati hai.
+2. Uske baad Redis cache mein naya updated JSON save karti hai.
+3. Required writes successful hone ke baad frontend ko success response diya jata hai.
+
+~~~text
+[ Admin Write Input ] ──► [ Node.js Backend ]
+                                  |
+                                  v
+                       [ Update MongoDB ]
+                                  |
+                                  v
+                       [ Update Redis Cache ]
+                                  |
+                                  v
+                       [ Return Success ]
+~~~
+
+- **Main benefit:** Cache ko update karke stale reads ka chance kam kiya ja sakta hai.
+- **Drawback:** Dono writes complete hone ka wait karne ki wajah se write latency badh sakti hai.
+- **Important:** Dono stores ek distributed transaction mein automatically locked nahi hote. Partial failure ko handle karne ke liye retries, cache eviction, ya reconciliation logic ki zaroorat ho sakti hai.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+async function updateProductWriteThrough(productId, updateData) {
+  const cacheKey = "product:" + productId;
+
+  // 1. Update the primary database
+  const product = await Product.findByIdAndUpdate(
+    productId,
+    updateData,
+    { new: true, runValidators: true }
+  ).lean();
+
+  if (!product) {
+    throw new Error("Product database record not found");
+  }
+
+  // 2. Update Redis with the new database value
+  try {
+    await redis.set(cacheKey, JSON.stringify(product), { EX: 300 });
+  } catch (error) {
+    // Invalidate cache if the Redis write fails, so the next read can reload it
+    try {
+      await redis.del(cacheKey);
+    } catch (invalidationError) {
+      console.error("Cache invalidation failed:", invalidationError);
+    }
+    throw error;
+  }
+
+  return product;
+}
+~~~
+
+## 📋 Performance Matrix
+
+| Metric | Write-Through Cache Strategy |
+|---|---|
+| Write target order | Application updates the database and cache. |
+| Data consistency | Helps keep cache and database aligned, but partial failures still need handling. |
+| Write execution speed | Usually slower than cache-only acknowledgement because both writes must complete. |
+| Suitable use case | Frequently read data where a fresh cached value is important. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Write-Through caching updates the primary database and cache as part of the same application write flow. It helps keep cached values fresh, but adds write latency and requires handling partial failures between the two stores."
+- **Hinglish Quick Memory:** Write-Through mein data update karte waqt MongoDB aur Redis dono update hote hain. Isse cache fresh rakhne mein help milti hai, lekin double write ki wajah se API slow ho sakti hai. Agar ek write fail ho, toh uska handling logic bhi zaroori hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
