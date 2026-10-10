@@ -4387,6 +4387,101 @@ async function getProductSecurely(productId) {
 - **English Pitch:** "Cache Penetration occurs when requests for nonexistent records miss both the cache and database, causing repeated database lookups. Input validation, rate limiting, Bloom filters, and short-lived negative caching can reduce this load."
 - **Hinglish Quick Memory:** Jab invalid ID Redis aur MongoDB dono mein nahi milti, toh har request database tak ja sakti hai. Negative caching missing result ko thodi der ke liye Redis mein save karta hai, taaki same invalid ID ki repeated request par DB query repeat na ho.
 
+# 🚀 Question 51: What Is Cache Breakdown / Cache Stampede?
+
+## 📝 Answer (English — Interview Definition)
+
+A Cache Stampede (also called a cache breakdown or thundering herd problem in many contexts) occurs when a very popular cache entry expires or becomes unavailable and many concurrent requests try to fetch the same data from the database at once.
+
+Because the hot key is missing, each request can experience a cache miss and issue a duplicate database query. This can create a burst of unnecessary work, increase database latency, exhaust connection pools, or contribute to an outage.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo aapke MERN project mein ek popular product ya viral blog post hai jise ek hi samay par hazaaron users dekh rahe hain. Agar us product ki Redis key expire ho jaaye, toh:
+
+1. **Expiry event:** Hot key Redis se valid cache entry ke roop mein return nahi hoti.
+2. **Concurrent requests:** Bahut saare users ek hi waqt par request bhejte hain.
+3. **Duplicate queries:** Agar coordination nahi hai, toh kai requests same data ke liye MongoDB query chala sakti hain.
+4. **Impact:** Database ka load aur latency badh sakti hai, aur serious situation mein service unavailable ho sakti hai.
+
+~~~text
+[ Popular Cache Key Expires ]
+             |
+             v
+    [ Concurrent Requests ]
+             |
+             v
+      [ Cache Misses ]
+             |
+             v
+ [ Duplicate DB Queries for Same Key ]
+             |
+             v
+ [ Increased Database Load / Latency ]
+~~~
+
+## 💻 Practical Code Example (Request Coalescing / Single-Flight)
+
+Single Node.js process mein `Map` ke andar in-flight database promises track karke same key ki concurrent requests ko ek hi query ka result share karwaya ja sakta hai.
+
+~~~javascript
+const pendingDBQueries = new Map();
+
+async function getProductSingleFlight(productId) {
+  const cacheKey = `product:${productId}`;
+
+  // 1. Check Redis first
+  const cachedContent = await redis.get(cacheKey);
+  if (cachedContent !== null) {
+    return JSON.parse(cachedContent);
+  }
+
+  // 2. If a database request is already in flight, reuse its Promise
+  if (pendingDBQueries.has(cacheKey)) {
+    return pendingDBQueries.get(cacheKey);
+  }
+
+  // 3. Start one database fetch for this key
+  const dbFetchPromise = (async () => {
+    try {
+      const productDoc = await Product.findById(productId).lean();
+
+      if (productDoc) {
+        await redis.set(cacheKey, JSON.stringify(productDoc), { EX: 300 });
+      }
+
+      return productDoc;
+    } finally {
+      // Remove the in-flight marker after success or failure
+      pendingDBQueries.delete(cacheKey);
+    }
+  })();
+
+  // Register the Promise so concurrent callers can reuse it
+  pendingDBQueries.set(cacheKey, dbFetchPromise);
+
+  return dbFetchPromise;
+}
+~~~
+
+## ⚠️ Production Architecture Note
+
+Yeh `Map` sirf **ek Node.js process** ke andar requests coordinate karta hai. Multiple containers or server instances ke across coordination ke liye shared mechanisms—such as a carefully designed Redis lock, distributed single-flight service, or refresh-ahead background worker—may be needed. Distributed locks require expiry, failure handling, and ownership-safe release logic.
+
+## 📋 Cache Stampede Mitigation Table
+
+| Engineering Strategy | How It Works | Typical Use |
+|---|---|---|
+| Request coalescing (single-flight) | Concurrent requests for the same key share one in-flight DB query. | Avoid duplicate work within one process or coordinated service. |
+| Mutex / distributed locking | Coordinate cache-miss handling across multiple instances. | Hot keys behind load balancers. |
+| Background refresh (refresh-ahead) | Refresh high-demand keys before their TTL expires. | Homepage data or trending product indexes. |
+| Stale-while-revalidate | Serve a bounded stale value while one worker refreshes it, when business rules allow. | Content where brief staleness is acceptable. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Cache Stampede happens when a hot cache key expires and many concurrent requests query the database for the same record. Request coalescing, distributed coordination, refresh-ahead, and stale-while-revalidate can reduce duplicate database work."
+- **Hinglish Quick Memory:** Cache Stampede tab hota hai jab popular key expire hote hi bahut saari requests same data ke liye MongoDB ko hit karti hain. Single-flight mein same key ki parallel requests ek hi in-flight database query ka Promise share karti hain.
+
 ---
 
 *More answers will be added in question order, using this format.*
