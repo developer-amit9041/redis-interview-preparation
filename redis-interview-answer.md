@@ -2917,6 +2917,184 @@ console.log(currentUserRole); // Output: Developer
 - **English Pitch:** "HSET writes field-value pairs into a hash stored under one key, while HGET extracts a specific field. They let applications update or read individual fields without fetching and parsing an entire serialized JSON string."
 - **Hinglish Quick Memory:** HSET se hash object ke andar field create ya change hota hai, aur HGET se poore object ko fetch kiye bina specific target field ki live value uthai jaati hai. MERN projects mein user dashboard variables aur schema properties load karne ke liye yeh useful commands hain.
 
+# 🚀 Question 32: What Are LPUSH and RPUSH in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+LPUSH and RPUSH are native Redis commands used to insert one or more string elements into a Redis List data structure from opposite boundaries.
+
+- **LPUSH (Left Push):** Prepends elements at the head (left side) of the list.
+- **RPUSH (Right Push):** Appends elements at the tail (right side) of the list.
+
+Both commands execute with O(1) time complexity per element added at the list ends. They serve as standard building blocks for components like asynchronous job queues (FIFO/LIFO structures) and chronological timeline logs.
+
+## 🗣️ Answer in Hinglish
+
+LPUSH aur RPUSH dono hi Redis List (ordered collection) ke andar naye elements daalne ke liye use hote hain, par dono opposite side se insert karte hain:
+
+- **LPUSH:** List ke bilkul shuruat (Left/Head) mein naya item prepend karta hai.
+- **RPUSH:** List ke bilkul aakhiri (Right/Tail) mein naya item append karta hai.
+
+~~~text
+[ LPUSH HEAD ] ──► [ Task C ]
+
+List: [ "Task C", "Task A", "Task B" ]
+
+[ RPUSH TAIL ] ──► [ Task B ]
+~~~
+
+### ⚠️ Crucial Interview Edge Case
+
+Jab aap ek hi call mein multiple values LPUSH karte ho, toh Redis unhe ek-ek karke left side se push karta hai. Iska matlab agar aap LPUSH tasks val1 val2 val3 likhoge, toh list mein final order val3, val2, val1 ho jayega (insertion sequence reverse ho jata hai).
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. RPUSH — Items ko list ke tail (end) mein append karna
+  await redis.rPush("tasks", ["TaskA", "TaskB"]);
+
+  // 2. LPUSH — Naye item ko head (start) mein prepend karna
+  await redis.lPush("tasks", "TaskC");
+
+  // 3. LRANGE — Range specifications (0 to -1 ka matlab full array read)
+  const taskCollection = await redis.lRange("tasks", 0, -1);
+  console.log("Final List Structure:", taskCollection);
+  // Output: [ 'TaskC', 'TaskA', 'TaskB' ]
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Chronological Activity Feed)
+
+MERN stack models mein user ke latest actions ko sequence mein store karne ke liye LPUSH ka use kiya jata hai taaki latest feed top par load ho:
+
+~~~javascript
+// User actions ke live metrics trigger hone par head par push karna
+await redis.lPush("activity:user101", "Viewed Product");
+await redis.lPush("activity:user101", "Added to Cart");
+
+// Frontend profile feed ke liye top 10 recent elements instantly fetch karna
+const recentFeed = await redis.lRange("activity:user101", 0, 9);
+~~~
+
+## 📋 List Boundary Modification Table
+
+| Command | Direction Axis | Algorithmic Complexity | Production Use Case |
+|---|---|---|---|
+| LPUSH | Head (Left Side) | O(1) per element | Chronological timelines, activity feeds. |
+| RPUSH | Tail (Right Side) | O(1) per element | Asynchronous task distribution queues. |
+| LPOP | Head (Left Side) | O(1) | Processing LIFO stacks or FIFO consumer pulling. |
+| RPOP | Tail (Right Side) | O(1) | Worker engines draining queued job tasks. |
+| LRANGE | Multi-index read | O(S+N), where S is the offset and N is the number of returned elements | Fetching bounded segments for frontend view mapping. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "LPUSH prepends string elements to the left boundary of a Redis List, while RPUSH appends them to the right boundary. Both are efficient list-end operations and form foundational mechanics for event feeds, chronological histories, and job-worker pipelines."
+- **Hinglish Quick Memory:** LPUSH data ko list ke aage se daalta hai (Head prepend), aur RPUSH data ko peeche se daalta hai (Tail append). FIFO Queue banane ke liye RPUSH se daalo aur LPOP se nikaalo.
+
+---
+
+# 🚀 Question 33: What Are SADD and SMEMBERS in Redis?
+
+## 📝 Answer (English — Interview Definition)
+
+SADD and SMEMBERS are core Redis commands tailored for manipulating and inspecting an unordered collection of distinct elements known as a Redis Set.
+
+- **SADD (Set Add):** Inserts one or more members into the set, automatically filtering out and rejecting duplicate items.
+- **SMEMBERS (Set Members):** Returns the entire collection of unique values stored inside the targeted set key.
+
+A standard Redis Set uses optimized internal data structures for efficient membership operations. SADD is O(1) on average per member, while SMEMBERS takes O(N) time to return all members. These commands are ideal for analytics structures that track distinct entities, social tags, and real-time membership validation.
+
+## 🗣️ Answer in Hinglish
+
+SADD aur SMEMBERS dono hi Redis Set (duplicate-free zone) ke main commands hain:
+
+- **SADD:** Set ke andar unique members ko insert karta hai. Agar koi element pehle se wahan maujood hai, toh naya duplicate member add nahi hota.
+- **SMEMBERS:** Target set ke andar ka saara unique data ek sath pull out karke collection ke form mein laata hai.
+
+~~~text
+[ SADD Execution Input ]
+"Node.js", "React", "MongoDB", "Node.js"
+            │
+            ▼
+[ Unique Set Structure ]
+{ "Node.js", "React", "MongoDB" }
+(Duplicate "Node.js" is not added)
+            │
+            ▼
+[ SMEMBERS Output ]
+[ "Node.js", "React", "MongoDB" ]
+(Order is not guaranteed)
+~~~
+
+### ⚠️ Structural Memory Architecture Rule
+
+Redis Set ke andar save kiye gaye data ka koi fixed order ya sequencing nahi hoti (unordered topology). Isliye SMEMBERS se milne wale array ka order guaranteed nahi hai.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. SADD — Multiple items add karna; duplicate "Node.js" dobara add nahi hoga
+  await redis.sAdd("skills", ["Node.js", "React", "Node.js"]);
+
+  // 2. SMEMBERS — Set ke saare distinct elements read karna
+  const skillSet = await redis.sMembers("skills");
+  console.log("Unique Collection Data:", skillSet);
+  // Possible Output: [ 'Node.js', 'React' ] or [ 'React', 'Node.js' ]
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+~~~
+
+## 🔄 Real-World MERN Usage Pattern (Unique Social Interactions)
+
+MERN stack controllers mein unique post interactions count karne ke liye Set approach select ki ja sakti hai:
+
+~~~javascript
+// Ek single user ID multiple times like kare, toh bhi member duplicate nahi hoga
+await redis.sAdd("product:101:likes", "user101");
+await redis.sAdd("product:101:likes", "user102");
+await redis.sAdd("product:101:likes", "user101"); // Duplicate member is not added
+
+// Analytics counter ke liye bina saare members load kiye direct count lena
+const distinctCount = await redis.sCard("product:101:likes");
+console.log("Total Distinct Likes:", distinctCount); // Output: 2
+~~~
+
+## 📋 Set Operations Functionality Table
+
+| Command | Operations Objective | Average Time Complexity | Production Value |
+|---|---|---|---|
+| SADD | Unique member add karna (duplicates ignored). | O(1) per member | Appending user tags, unique login tracking. |
+| SMEMBERS | Full set ke saare members return karna. | O(N) | Exporting full collections for mapping loops. |
+| SISMEMBER | Single target member ki existence check karna. | O(1) | Checking user permissions or membership. |
+| SREM | Targeted member ko set se remove karna. | O(1) per member on average | Removing tags or processing unfollow events. |
+| SCARD | Total members count return karna. | O(1) | Live dashboard counters. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "SADD inserts distinct string members into a Redis Set, ignoring duplicates, while SMEMBERS returns the complete unordered collection. These commands provide useful primitives for membership validation, tagging indexes, and unique interaction tracking."
+- **Hinglish Quick Memory:** SADD command set ke andar unique items add karta hai; duplicate item dobara add nahi hota. SMEMBERS us set ke saare members return karta hai, lekin order fixed nahi hota. Unique user interactions ya permissions tracking ke liye yeh useful commands hain.
+
 ---
 
 *More answers will be added in question order, using this format.*
