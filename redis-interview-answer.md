@@ -6369,6 +6369,124 @@ Subscriber ko `"Order 102 created"` receive hoga, lekin `"Order 101 created"` au
 - **English Pitch:** "Redis Pub/Sub provides at-most-once message delivery. If a subscriber is offline when a message is published, that message is lost for that subscriber. Redis does not store Pub/Sub messages for replay. If message persistence and recovery are required, I would consider Redis Streams or another durable messaging system."
 - **Hinglish Quick Memory:** "Redis Pub/Sub mein subscriber offline hone par message miss ho jata hai. Reconnect karke dobara subscribe karne par sirf future messages milte hain. Purane messages recover karne ke liye Redis Streams ya kisi durable messaging system ka use kar sakte hain."
 
+# 🚀 Question 76: Can Redis Pub/Sub Store Messages?
+
+## 📝 Answer (English — Interview Definition)
+
+**No, Redis Pub/Sub does not store messages for later delivery.** It delivers messages to currently connected subscribers in real time. If a subscriber is offline when a message is published, that subscriber misses the message. Redis Pub/Sub does not provide message history or replay.
+
+If an application needs to store messages and read them later, it can use **Redis Streams**, Kafka, or a suitable message queue such as RabbitMQ.
+
+## 🗣️ Answer in Hinglish
+
+Redis Pub/Sub messages ko store nahi karta. Yeh sirf real-time mein active subscribers tak messages broadcast karta hai.
+
+Maan lo e-commerce application mein Order Service ek message publish karti hai:
+
+1. Order Service `order_events` channel par message publish karti hai.
+2. Redis us waqt active subscribers ko message bhejta hai.
+3. Agar Notification Service offline hai, toh woh message miss ho sakta hai.
+4. Service wapas online aane par purana message automatically receive nahi karegi.
+
+**Important:** Redis server ka persistence enabled hona bhi Pub/Sub messages ko message history ke roop mein store nahi karta. Pub/Sub aur Redis Streams alag features hain.
+
+## 🏗️ Architecture Diagram
+
+~~~text
+       Order Service
+             |
+             | PUBLISH order_events
+             v
+       Redis Pub/Sub
+             |
+       +-----+------+
+       |            |
+       v            v
+  Active Client  Offline Client
+  Gets message   Misses message
+                     |
+                     v
+             No automatic replay
+~~~
+
+Agar messages store karne hain, toh flow kuch is tarah ho sakta hai:
+
+~~~text
+       Order Service
+             |
+             | XADD
+             v
+       Redis Stream
+       [Stored Events]
+             |
+             | Read later
+             v
+      Consumer Service
+~~~
+
+## 💻 Practical Redis CLI Example
+
+### A. Redis Pub/Sub — Messages are not stored
+
+**Terminal 1 — Subscriber**
+
+~~~bash
+redis-cli
+SUBSCRIBE order_events
+~~~
+
+**Terminal 2 — Publisher**
+
+~~~bash
+redis-cli PUBLISH order_events "Order 101 created"
+~~~
+
+Agar Terminal 1 par subscriber active hai, toh woh message receive karega. Agar koi subscriber active nahi hai, toh publish response `(integer) 0` aa sakta hai.
+
+Baad mein subscribe karne par purana message automatically nahi milega.
+
+### B. Redis Streams — Messages are stored
+
+Redis Stream mein event add karne ke liye:
+
+~~~bash
+redis-cli XADD order_stream "*" event "order_created" orderId "101"
+~~~
+
+Redis ek Stream Entry ID return karega, jaise:
+
+~~~text
+"1760000000000-0"
+~~~
+
+Yeh ID sirf example hai; actual ID Redis generate karta hai.
+
+Stream ke stored messages read karne ke liye:
+
+~~~bash
+redis-cli XRANGE order_stream - +
+~~~
+
+Yahan `XADD` event ko Stream mein add karta hai, aur `XRANGE` stored entries read karta hai.
+
+## 📊 Comparison Table
+
+| Feature | Redis Pub/Sub | Redis Streams |
+|---|---|---|
+| Stores messages | No | Yes |
+| Offline consumer can read old messages | No | Yes, while entries remain in the stream |
+| Message history | No | Yes |
+| Replay | No | Yes, by reading entries again |
+| Consumer groups | No | Yes |
+| Common use case | Live notifications, real-time updates | Event processing, stored messages, consumer workflows |
+
+**Note:** Redis Streams entries retention, trimming, and Redis persistence configuration par depend karte hain. Streams use karne ka matlab yeh nahi ki data automatically forever store hoga.
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "Redis Pub/Sub does not store messages. It broadcasts messages to currently connected subscribers, and offline subscribers can miss them. For message persistence, history, and replay, I would use Redis Streams or a suitable durable messaging system."
+- **Hinglish Quick Memory:** "Redis Pub/Sub messages store nahi karta, sirf active subscribers ko real-time mein deliver karta hai. Offline subscriber purana message miss kar sakta hai. Messages ko store aur baad mein read karna ho toh Redis Streams use kar sakte hain."
+
 ---
 
 *More answers will be added in question order, using this format.*
