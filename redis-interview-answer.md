@@ -4482,6 +4482,75 @@ Yeh `Map` sirf **ek Node.js process** ke andar requests coordinate karta hai. Mu
 - **English Pitch:** "A Cache Stampede happens when a hot cache key expires and many concurrent requests query the database for the same record. Request coalescing, distributed coordination, refresh-ahead, and stale-while-revalidate can reduce duplicate database work."
 - **Hinglish Quick Memory:** Cache Stampede tab hota hai jab popular key expire hote hi bahut saari requests same data ke liye MongoDB ko hit karti hain. Single-flight mein same key ki parallel requests ek hi in-flight database query ka Promise share karti hain.
 
+# 🚀 Question 52: How Do You Prevent Cache Avalanche?
+
+## 📝 Answer (English — Interview Definition)
+
+Cache Avalanche prevention uses strategies that reduce simultaneous cache expirations and protect the primary database when many cache entries are unavailable at once. Common techniques include randomized TTL jitter, cache pre-warming, background refresh, rate limiting, circuit breakers, and stale-while-revalidate where serving slightly stale data is acceptable.
+
+TTL jitter spreads key expirations across a time window instead of allowing a large group of keys to expire together. Pre-warming and background refresh help keep high-demand keys available, while rate limits and circuit breakers can reduce the load reaching an unhealthy database.
+
+## 🗣️ Answer in Hinglish
+
+Cache Avalanche tab ho sakta hai jab bahut saari Redis keys ek hi time par expire ho jaati hain aur requests ka sudden load MongoDB par chala jata hai. Is risk ko reduce karne ke liye common production techniques hain:
+
+1. **Random TTL (TTL Jitter):** Har key ka expiry time thoda random rakho, taaki sab keys ek hi waqt par expire na hon.
+2. **Cache Prewarming:** Peak traffic ya deployment se pehle popular records Redis mein load kar do.
+3. **Proactive Background Refresh:** Expiry se pehle background worker hot keys ko refresh kar sakta hai.
+4. **Rate Limiting / Circuit Breakers:** Excess requests control karo aur database unhealthy ho toh fallback load ko limit karo.
+5. **Stale-While-Revalidate:** Business rules allow karein toh refresh ke waqt limited period ke liye stale data serve karke duplicate DB reads kam kiye ja sakte hain.
+
+## 💻 Practical Code Example (TTL Jitter + Cache Prewarming)
+
+~~~javascript
+// Defense 1: Add randomized TTL jitter
+function getAvalancheShieldTTL(baseSeconds = 300, variationWindow = 120) {
+  const randomVariance = Math.floor(Math.random() * variationWindow);
+  return baseSeconds + randomVariance;
+}
+
+async function secureCacheStorage(productId, productData) {
+  const cacheKey = `product:${productId}`;
+
+  await redis.set(cacheKey, JSON.stringify(productData), {
+    EX: getAvalancheShieldTTL(300, 120)
+  });
+}
+
+// Defense 2: Prewarm popular product records before expected peak traffic
+async function executeProductionCachePrewarming() {
+  const topTrendingItems = await Product.find()
+    .sort({ totalSalesCount: -1 })
+    .limit(100)
+    .lean();
+
+  for (const item of topTrendingItems) {
+    const key = `product:${item._id}`;
+
+    await redis.set(key, JSON.stringify(item), {
+      EX: getAvalancheShieldTTL(600, 240)
+    });
+  }
+}
+~~~
+
+The first TTL range is 300–419 seconds, and the prewarming range is 600–839 seconds. Jitter lowers synchronized-expiry risk, but it does not eliminate every avalanche scenario; combine it with controls appropriate to the traffic pattern and database capacity.
+
+## 📋 Cache Avalanche Mitigation Matrix
+
+| Prevention Technique | Practical Implementation | Core Benefit |
+|---|---|---|
+| Randomized TTL (jitter) | Add a random offset to each key's base TTL. | Spreads expiration events across time. |
+| Cache prewarming | Load frequently requested records before peak traffic. | Reduces cold-cache misses for selected hot keys. |
+| Controlled background refresh | Refresh hot entries with a worker or scheduled process. | Helps keep important keys populated. |
+| Stale-while-revalidate | Serve a bounded stale value while one request refreshes it, when acceptable. | Can reduce concurrent fallback reads. |
+| Rate limiting / circuit breaker | Cap incoming work or limit fallback requests when the database is unhealthy. | Helps protect the database from overload. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "We reduce Cache Avalanche risk by using randomized TTL jitter to spread expirations, prewarming high-traffic keys, and refreshing hot data in the background. Rate limiting, circuit breakers, and stale-while-revalidate can further reduce database pressure."
+- **Hinglish Quick Memory:** Cache Avalanche se bachne ke liye sab keys ka same TTL mat rakho. Random TTL jitter use karo, traffic spike se pehle popular data prewarm karo, background refresh chalao, aur database par sudden load ko limit karne ke liye rate limiting/circuit breaker use karo.
+
 ---
 
 *More answers will be added in question order, using this format.*
