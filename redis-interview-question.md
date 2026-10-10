@@ -14,11 +14,11 @@ Redis interview question bank for backend and MERN Stack developers, organized b
 8. What is TTL in Redis?
 9. What is key expiration in Redis?
 10. What are the most commonly used Redis commands?
-11. Redis vs Memcached — what's the difference?
-12. When should you use Redis?
-13. When should you NOT use Redis?
-14. Can Redis be used as a primary database?
-15. How does Redis store data?
+11. How does Redis store data?
+12. Redis vs Memcached — what's the difference?
+13. When should you use Redis?
+14. When should you NOT use Redis?
+15. Can Redis be used as a primary database?
 
 ## 🟡 Level 2 — Data Types & Commands
 
