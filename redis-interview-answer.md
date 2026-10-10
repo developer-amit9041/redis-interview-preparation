@@ -1789,6 +1789,175 @@ Isse un-necessary JSON serialization parsing ka cost zero ho jata hai aur networ
 - **English Pitch:** "A Redis Hash maps a single key to multiple internal field-value pairs, acting as a native representation of flat objects. It optimizes memory by consolidating parameters and permits reading or writing single properties via HSET/HGET without the computational cost of serializing entire JSON strings."
 - **Hinglish Quick Memory:** Hash matlab backend ka JavaScript Object. Pura data bracket daal kar ek hi key (user:id) mein fill kar do. Pure structural objects ko direct hit kiye bina kisi ek line value ko update karne ke liye HSET aur pure parameters check karne ke liye HGETALL ka use karo.
 
+# 🚀 Question 18: What Is Redis List?
+
+## 📝 Answer (English — Interview Definition)
+
+A Redis List is an ordered collection of strings linked sequentially, allowing duplicate elements and supporting fast insertion or deletion from both the head (left) and the tail (right).
+
+Internally implemented using linked data structures (like quicklists), adding elements to the extreme ends of a list takes an O(1) constant time complexity. This performance profile makes Redis Lists the industry standard for implementing asynchronous message queues (FIFO/LIFO structures), chronological activity streams, and real-time user notification pipelines.
+
+## 🗣️ Answer in Hinglish
+
+Redis List ek tarah ka ordered array ya collection hai jisme multiple text strings ko ek sequential order mein save kiya jata hai. Is data type ki khass baat yeh hai ki aap items ko aage (Left) se ya peeche (Right) se, dono sides se insert aur remove kar sakte ho:
+
+```text
+[Index 0]          [Index 1]          [Index 2]
+"Task C"   ◄───►   "Task A"   ◄───►   "Task B"
+(Left/Head)                           (Right/Tail)
+```
+
+### 💡 Key Characteristics
+
+- **Ordering:** Jis sequence mein aap data insert karoge, order waisa hi maintain rahega.
+- **Duplicates:** Isme ek hi value multiple times allow hoti hai (jaise same log message baar-baar aana).
+- **Use Cases:** Iska use main taur par backgrounds worker queues (jaise Node.js mein BullMQ), live user activity tracking, aur user in-app notifications stream manage karne mein hota hai.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. RPUSH — List ke end (Right) mein items append karna
+  await redis.rPush("tasks", ["Task A", "Task B"]);
+
+  // 2. LPUSH — List ke shuruat (Left) mein naya item prepend karna
+  await redis.lPush("tasks", "Task C");
+
+  // 3. LRANGE — Range specify karke elements read karna (0 to -1 matlab complete list)
+  const allTasks = await redis.lRange("tasks", 0, -1);
+  console.log("Current List Layout:", allTasks);
+  // Output: [ 'Task C', 'Task A', 'Task B' ]
+
+  // 4. LPOP — List ke start (Left) se element nikalna aur return lena
+  const processedTask = await redis.lPop("tasks");
+  console.log("Removed Item:", processedTask); // Output: Task C
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+```
+
+## 🔄 Real-World MERN Usage Pattern (Notifications Engine)
+
+MERN stack application mein live user feed notifications store karne ke liye hum Redis Lists ko use karte hain taaki latest update top par dikhe:
+
+```javascript
+// Latest alerts ko hamesha queue ke shuruat mein push karein
+await redis.lPush("notifications:user101", "New message received");
+await redis.lPush("notifications:user101", "Your order has been shipped");
+
+// UI ke liye sirf top 10 latest entries reload kar lein RAM se
+const displayFeed = await redis.lRange("notifications:user101", 0, 9);
+```
+
+## 📋 Essential List Commands Table
+
+| Command | Technical Purpose | Production Example |
+|---|---|---|
+| LPUSH | List ke Left/Start boundary mein items insert karna. | `LPUSH queue:jobs "id:99"` |
+| RPUSH | List ke Right/End boundary mein data append karna. | `RPUSH queue:jobs "id:100"` |
+| LPOP | Start element ko pop out aur memory se clear karna. | `LPOP queue:jobs` |
+| RPOP | End element ko tail se pull out karna. | `RPOP queue:jobs` |
+| LRANGE | Index boundaries pass karke elements array fetch karna. | `LRANGE queue:jobs 0 -1` |
+| LLEN | Check karna ki total list ke andar kitne entries hain. | `LLEN queue:jobs` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Redis List is a linked sequence of strings that allows swift insertion and deletion from both ends in O(1) time. It inherently maintains insertion order, tolerates duplicate records, and is ideal for constructing high-throughput task queues or activity timelines."
+- **Hinglish Quick Memory:** List matlab ek line array. LPUSH se data shuruat mein judega, RPUSH se end mein text fill hoga. Elements ko delete aur return karne ke liye LPOP/RPOP use karo, aur range index se data dekhne ke liye LRANGE ka sahara lo.
+
+---
+
+# 🚀 Question 19: What Is Redis Set?
+
+## 📝 Answer (English — Interview Definition)
+
+A Redis Set is an unordered collection of unique strings. It natively guarantees the complete elimination of duplicate entries, meaning any attempt to append an existing member will be silently ignored by the server engine.
+
+Redis Sets are mathematically optimized to support complex set-theory operations directly in RAM with extreme speed. Developers can execute heavy operations like unions, intersections, and differences across collections instantly. This makes them incredibly valuable for tracking unique user activities (like daily active visitors IP auditing), social media tagging networks, or calculating mutual follower recommendations.
+
+## 🗣️ Answer in Hinglish
+
+Redis Set ek aisa data collection hai jisme saari values hamesha 100% Unique hoti hain. Is structure ke andar duplicates ki entry bilkul impossible hoti hai:
+
+```text
+Key: skills ──► Contains: { "Node.js", "React", "MongoDB" }
+
+(Agar aap fir se "Node.js" add karne ki koshish karoge,
+ toh Redis use ignore kar dega, double entry nahi banegi)
+```
+
+### ⚠️ Structural Warning
+
+Redis Set ke andar elements ka koi Fixed Index or Order nahi hota (Unordered). Isliye agar aapko list ke items ka sequencing up-down maintain rakhna hai, toh Set ki jagah List data type choose karein.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+```javascript
+const { createClient } = require("redis");
+
+async function main() {
+  const redis = createClient({ url: "redis://localhost:6379" });
+  redis.on("error", console.error);
+  await redis.connect();
+
+  // 1. SADD — Members add karna (Duplicate "Node.js" automatic ignore ho jayega)
+  await redis.sAdd("skills", ["Node.js", "React", "MongoDB", "Node.js"]);
+
+  // 2. SMEMBERS — Set ke saare unique elements ko array form mein return lena
+  const uniqueSkills = await redis.sMembers("skills");
+  console.log("Unique Collection:", uniqueSkills);
+  // Output: [ 'Node.js', 'React', 'MongoDB' ] (Unordered layout)
+
+  // 3. SISMEMBER — Check karna ki koi specific member collection mein active hai ya nahi
+  const hasReact = await redis.sIsMember("skills", "React");
+  console.log("Does React exist?", hasReact === 1 ? "Yes" : "No"); // Output: Yes
+
+  // 4. SREM — Kisi member ko data storage se completely remove karna
+  await redis.sRem("skills", "MongoDB");
+
+  await redis.quit();
+}
+
+main().catch(console.error);
+```
+
+## 🔄 Real-World MERN Usage Pattern (Unique Likes Tracking)
+
+E-commerce ya blogging platform par bina multi-thread collisions ke kisi product par padne wale unique user likes count karne ke liye Set performant tool hai:
+
+```javascript
+// Har click par user ID append karein (Same user do baar like nahi kar payega)
+await redis.sAdd("product:101:likes", "user_id_889");
+await redis.sAdd("product:101:likes", "user_id_412");
+
+// Total unique count direct fetch kar lo analytics dashboard ke liye
+const totalLikesCount = await redis.sCard("product:101:likes");
+```
+
+## 📋 Essential Set Commands Table
+
+| Command | Technical Purpose | Production Example |
+|---|---|---|
+| SADD | Set structure mein unique string content push karna. | `SADD tags:posts "javascript"` |
+| SMEMBERS | Pure array members layout ko read out karna. | `SMEMBERS tags:posts` |
+| SISMEMBER | Check karna ki target variable set ka part hai ya nahi. | `SISMEMBER tags:posts "python"` |
+| SREM | Targeted distinct item string ko map se drop karna. | `SREM tags:posts "javascript"` |
+| SCARD | Bina saara data load kiye direct total count/cardinality return lena. | `SCARD tags:posts` |
+| SINTER | Do alag-alag sets ke beech ke common elements (Intersection) nikalna. | `SINTER user1:friends user2:friends` |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "A Redis Set is an unordered matrix of distinct string values that natively rejects duplicates. It features ultra-fast lookup times and supports robust set operations like intersection (SINTER) or counting total members via SCARD without rendering the full array structure."
+- **Hinglish Quick Memory:** Set ka matlab hai duplicate-free zone. Isme same entry do baar nahi ja sakti. SADD se entries insert karo, SMEMBERS se read karo, SISMEMBER se value crosscheck karo, aur SINTER ka use karke do alag user profiles ke mutual connections nikaal lo.
+
 ---
 
 *More answers will be added in question order, using this format.*
