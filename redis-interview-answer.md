@@ -4004,6 +4004,64 @@ return res.json(product);
 - **English Pitch:** "A Cache Miss means the requested key is not available in the cache. In the cache-aside pattern, the application reads from the primary database and commonly populates the cache so later requests may become cache hits."
 - **Hinglish Quick Memory:** Cache Miss ka matlab Redis mein data nahi mila. Backend MongoDB se data fetch karta hai aur future requests ke liye Redis mein TTL ke saath save kar sakta hai.
 
+# 🚀 Question 45: What Happens When Cache Expires?
+
+## 📝 Answer (English — Interview Definition)
+
+When a Redis key reaches its TTL (Time To Live), it is considered expired and is no longer returned as a valid key. Redis uses both passive expiration—checking expiration when a key is accessed—and active expiration, which periodically samples keys to find expired entries and reclaim memory.
+
+For an application using cache-aside, a subsequent read commonly becomes a Cache Miss. The application then fetches the current data from the primary database and can repopulate Redis with a new TTL. Expiration itself does not automatically query MongoDB or refresh the cache; the application must implement that fallback behavior.
+
+## 🗣️ Answer in Hinglish
+
+Maan lo humne Redis mein product ka data 60 seconds ke liye save kiya hai:
+
+1. **Active TTL window:** TTL valid rehne tak Redis se data mil sakta hai.
+2. **TTL expire:** Key valid cache entry nahi rehti aur Redis usse return nahi karta.
+3. **Next request:** Application `GET` karegi toh missing/expired key ke liye `null` mil sakta hai, aur Cache Miss hoga.
+4. **Database fallback:** Cache-aside code MongoDB se fresh data fetch karke Redis mein naye TTL ke saath save kar sakta hai.
+
+Redis expiration ke liye do mechanisms use karta hai:
+
+- **Passive (lazy) expiration:** Jab expired key access hoti hai, Redis uski expiry check karta hai aur use valid result ke roop mein return nahi karta.
+- **Active expiration:** Redis background mein keys sample karke expired entries ko identify aur clean karta hai. Isliye expiry ke exact instant par physical memory reclamation hona guaranteed nahi hai.
+
+## 💻 Practical Code Example (Node.js + Redis)
+
+~~~javascript
+// 1. Save a cache entry with a 60-second TTL
+await redis.set(
+  "product:101",
+  JSON.stringify({ name: "Laptop", price: 50000 }),
+  { EX: 60 }
+);
+
+// 2. Check the remaining TTL (in seconds)
+const activeTtl = await redis.ttl("product:101");
+console.log("Remaining TTL seconds:", activeTtl);
+
+// 3. Once the key has expired, GET returns null
+const cachedData = await redis.get("product:101");
+console.log("Cached data:", cachedData); // null if missing/expired
+
+// In a cache-aside application, handle the miss explicitly:
+// load the latest record from MongoDB, then repopulate Redis with a new TTL.
+~~~
+
+## 📋 Cache Expiration Lifecycle
+
+| Lifecycle Stage | Technical Action | Application Impact |
+|---|---|---|
+| TTL is active | Redis can return the cached value. | Request may be a Cache Hit. |
+| TTL expires | Key is treated as expired and is not returned as a valid entry. | Next lookup can become a Cache Miss. |
+| Application reads expired key | Redis returns a missing-key result, such as `null` from `GET`. | Application decides whether to query the database. |
+| Cache-aside refill | Application loads the current database record and stores it with a new TTL. | Later reads may be Cache Hits again. |
+
+## ⏱️ Easy Revision — 1-Minute Summary
+
+- **English Pitch:** "When a Redis key expires, it is no longer returned as a valid cache entry. Redis uses passive and active expiration mechanisms. In cache-aside, the next read can miss the cache, so the application fetches the data from the database and may repopulate Redis with a renewed TTL."
+- **Hinglish Quick Memory:** TTL complete hone ke baad Redis key ko valid data ke roop mein return nahi karta. Agli request par Cache Miss ho sakta hai; cache-aside backend MongoDB se fresh data laakar Redis ko dobara populate kar sakta hai.
+
 ---
 
 *More answers will be added in question order, using this format.*
